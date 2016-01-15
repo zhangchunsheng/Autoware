@@ -83,6 +83,8 @@ struct pose {
 
 static pose initial_pose, predict_pose, previous_pose, ndt_pose, current_pose, control_pose, localizer_pose, previous_gnss_pose, current_gnss_pose;
 
+static pose added_pose;
+
 static double offset_x, offset_y, offset_z, offset_yaw; // current_pos - previous_pose
 
 //Can't load if typed "pcl::PointCloud<pcl::PointXYZRGB> map, add;"
@@ -164,6 +166,9 @@ static double predict_pose_error = 0.0;
 
 static double _tf_x, _tf_y, _tf_z, _tf_roll, _tf_pitch, _tf_yaw;
 static Eigen::Matrix4f tf_btol, tf_ltob;
+
+static pcl::PointCloud<pcl::PointXYZ> ndt_map;
+static ros::Publisher ndt_map_pub;
 
 static void param_callback(const runtime_manager::ConfigNdt::ConstPtr& input)
 {
@@ -632,10 +637,11 @@ static void velodyne_callback(const pcl::PointCloud<velodyne_pointcloud::PointXY
 
       pcl::PointCloud<pcl::PointXYZ>::Ptr scan_ptr(new pcl::PointCloud<pcl::PointXYZ>(scan));
       pcl::PointCloud<pcl::PointXYZ>::Ptr filtered_scan_ptr(new pcl::PointCloud<pcl::PointXYZ>());
+      pcl::PointCloud<pcl::PointXYZ>::Ptr transformed_scan_ptr (new pcl::PointCloud<pcl::PointXYZ>());
 
       Eigen::Matrix4f t(Eigen::Matrix4f::Identity()); // base_link
       Eigen::Matrix4f t2(Eigen::Matrix4f::Identity()); // localizer
-            
+
       // Downsampling the velodyne scan using VoxelGrid filter
       pcl::VoxelGrid<pcl::PointXYZ> voxel_grid_filter;
       voxel_grid_filter.setLeafSize(voxel_leaf_size, voxel_leaf_size, voxel_leaf_size);
@@ -812,6 +818,32 @@ static void velodyne_callback(const pcl::PointCloud<velodyne_pointcloud::PointXY
       transform.setRotation(current_q);
       br.sendTransform(tf::StampedTransform(transform, current_scan_time, "/map", "/base_link"));
       
+
+
+      double offset = sqrt(pow(current_pose.x-added_pose.x,2.0)+pow(current_pose.y-added_pose.y,2.0));
+      std::cout << "offset: " << offset << std::endl;
+
+      pcl::transformPointCloud(*filtered_scan_ptr, *transformed_scan_ptr, t);
+      sensor_msgs::PointCloud2::Ptr map_msg_ptr(new sensor_msgs::PointCloud2);
+      if(offset >= 1.0){
+	ndt_map += *transformed_scan_ptr;
+	added_pose.x = current_pose.x;
+	added_pose.y = current_pose.y;
+	added_pose.z = current_pose.z;
+	added_pose.roll = current_pose.roll;
+	added_pose.pitch = current_pose.pitch;
+	added_pose.yaw = current_pose.yaw;
+	std::cout << "AAAAAAAAAAAAAAAAAAAAAA" << std::endl;
+	pcl::PointCloud<pcl::PointXYZ>::Ptr ndt_map_ptr(new pcl::PointCloud<pcl::PointXYZ>(ndt_map));
+	ndt_map_ptr->header.frame_id = "map";
+	pcl::toROSMsg(*ndt_map_ptr, *map_msg_ptr);
+
+	ndt_map_pub.publish(*map_msg_ptr);
+      }
+
+
+
+
       matching_end = std::chrono::system_clock::now();
       exe_time = std::chrono::duration_cast<std::chrono::microseconds>(matching_end-matching_start).count()/1000.0;
       time_ndt_matching.data = exe_time;
@@ -983,6 +1015,13 @@ int main(int argc, char **argv)
     initial_pose.pitch = 0.0;
     initial_pose.yaw = 0.0;
 
+    added_pose.x = 0.0;
+    added_pose.y = 0.0;
+    added_pose.z = 0.0;
+    added_pose.roll = 0.0;
+    added_pose.pitch = 0.0;
+    added_pose.yaw = 0.0;
+
     // Publishers
     predict_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("/predict_pose", 1000);
     ndt_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("/ndt_pose", 1000);
@@ -994,6 +1033,8 @@ int main(int argc, char **argv)
     estimated_vel_kmph_pub = nh.advertise<std_msgs::Float32>("/estimated_vel_kmph", 1000);
     time_ndt_matching_pub = nh.advertise<std_msgs::Float32>("/time_ndt_matching", 1000);
     ndt_stat_pub = nh.advertise<ndt_localizer::ndt_stat>("/ndt_stat", 1000);
+
+    ndt_map_pub = nh.advertise<sensor_msgs::PointCloud2>("/ndt_map", 1000);
 
     // Subscribers
     ros::Subscriber param_sub = nh.subscribe("config/ndt", 10, param_callback);
