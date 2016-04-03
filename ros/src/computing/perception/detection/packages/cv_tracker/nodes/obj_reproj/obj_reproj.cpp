@@ -98,24 +98,24 @@ static vector<OBJPOS> global_cp_vector;
 //mutex to handle global-scope objects
 static std::mutex mtx_cp_vector;
 static std::mutex mtx_flag_obj_pos_xyz;
-static std::mutex mtx_flag_ndt_pose;
+// static std::mutex mtx_flag_ndt_pose;
 #define LOCK(mtx) (mtx).lock()
 #define UNLOCK(mtx) (mtx).unlock()
 
 //flag for comfirming whether updating position or not
-static bool gnssGetFlag;
-static bool ndtGetFlag;
+// static bool gnssGetFlag;
+// static bool ndtGetFlag;
 static bool ready_;
 
-//store own position and direction now.updated by position_getter
-static LOCATION gnss_loc;
-static LOCATION ndt_loc;
-static ANGLE gnss_angle;
-static ANGLE ndt_angle;
+// //store own position and direction now.updated by position_getter
+// static LOCATION gnss_loc;
+// static LOCATION ndt_loc;
+// static ANGLE gnss_angle;
+// static ANGLE ndt_angle;
 
 //flag for comfirming whether multiple topics are received
 static bool isReady_obj_pos_xyz;
-static bool isReady_ndt_pose;
+// static bool isReady_ndt_pose;
 
 static double cameraMatrix[4][4] = {
   {-7.8577658642752374e-03, -6.2035361880992401e-02,9.9804301981022692e-01, 5.1542126095196206e-01},
@@ -134,8 +134,11 @@ static std::string object_type;
 static ros::Time image_obj_tracked_time;
 static ros::Time current_pose_time;
 
-//coordinate system conversion between camera coordinate and map coordinate
-static tf::StampedTransform transformCam2Map;
+//coordinate system conversion between camera coordinate and LIDAR coordinate
+static tf::StampedTransform transformCam2Lidar;
+
+//target frame ID of reprojection
+std::string target_frame_id;
 
 static visualization_msgs::MarkerArray convert_marker_array(const cv_tracker::obj_label& src)
 {
@@ -163,7 +166,7 @@ static visualization_msgs::MarkerArray convert_marker_array(const cv_tracker::ob
     {
       visualization_msgs::Marker marker;
       /* Set frame ID */
-      marker.header.frame_id = "map";
+      marker.header.frame_id = target_frame_id;
 
       /* Set namespace adn id for this marker */
       marker.ns = object_type;
@@ -204,11 +207,12 @@ static visualization_msgs::MarkerArray convert_marker_array(const cv_tracker::ob
 static jsk_recognition_msgs::BoundingBoxArray convertJskBoundingBoxArray(const cv_tracker::obj_label& src)
 {
   jsk_recognition_msgs::BoundingBoxArray ret;
+  ret.header.frame_id = target_frame_id;
 
   for (const auto& reproj_pos : src.reprojected_pos)
     {
       jsk_recognition_msgs::BoundingBox bounding_box;
-      bounding_box.header.frame_id = "map";
+      bounding_box.header.frame_id = target_frame_id;
 
       bounding_box.pose.position = reproj_pos;
 
@@ -258,8 +262,8 @@ void GetRPY(const geometry_msgs::Pose &pose,
 
 void makeSendDataDetectedObj(vector<OBJPOS> car_position_vector,
                              vector<OBJPOS>::iterator cp_iterator,
-                             LOCATION mloc,
-                             ANGLE angle,
+                             // LOCATION mloc,
+                             // ANGLE angle,
                              cv_tracker::obj_label& send_data)
 {
   geometry_msgs::Point tmpPoint;
@@ -274,9 +278,9 @@ void makeSendDataDetectedObj(vector<OBJPOS> car_position_vector,
     ol.setOriginalValue(U,V,cp_iterator->distance);
     LOCATION ress = ol.cal();
 
-    /* convert from "camera" coordinate system to "map" coordinate system */
+    /* convert from "camera" coordinate system to target coordinate system */
     tf::Vector3 pos_in_camera_coord(ress.X, ress.Y, ress.Z);
-    tf::Vector3 converted = transformCam2Map * pos_in_camera_coord;
+    tf::Vector3 converted = transformCam2Lidar * pos_in_camera_coord;
 
     tmpPoint.x = converted.x();
     tmpPoint.y = converted.y();
@@ -301,33 +305,34 @@ void locatePublisher(void){
   visualization_msgs::MarkerArray obj_label_marker_msgs;
 
   vector<OBJPOS>::iterator cp_iterator;
-  LOCATION mloc;
-  ANGLE mang;
+  // LOCATION mloc;
+  // ANGLE mang;
 
   cp_iterator = car_position_vector.begin();
 
-  //calculate own coordinate from own lati and longi value
-  //get my position now
-  if(ndtGetFlag){
-    mloc = ndt_loc;
-    mang = ndt_angle;
-  }else{
-    mloc = gnss_loc;
-    mang = gnss_angle;
-  }
-  gnssGetFlag = false;
-  ndtGetFlag = false;
+  // //calculate own coordinate from own lati and longi value
+  // //get my position now
+  // if(ndtGetFlag){
+  //   mloc = ndt_loc;
+  //   mang = ndt_angle;
+  // }else{
+  //   mloc = gnss_loc;
+  //   mang = gnss_angle;
+  // }
+  // gnssGetFlag = false;
+  // ndtGetFlag = false;
 
-  //If position is over range,skip loop
-  if((!(mloc.X > 180.0 && mloc.X < -180.0 ) ||
-      (mloc.Y > 180.0 && mloc.Y < -180.0 ) ||
-      mloc.Z < 0.0) ){
+  // //If position is over range,skip loop
+  // if((!(mloc.X > 180.0 && mloc.X < -180.0 ) ||
+  //     (mloc.Y > 180.0 && mloc.Y < -180.0 ) ||
+  //     mloc.Z < 0.0) ){
 
     //get data of car and pedestrian recognizing
     if(!car_position_vector.empty()){
-      makeSendDataDetectedObj(car_position_vector,cp_iterator,mloc,mang,obj_label_msg);
+      // makeSendDataDetectedObj(car_position_vector,cp_iterator,mloc,mang,obj_label_msg);
+      makeSendDataDetectedObj(car_position_vector,cp_iterator,obj_label_msg);
     }
-  }
+  // }
   //publish recognized car data
   obj_label_msg.type = object_type;
   obj_label_marker_msgs = convert_marker_array(obj_label_msg);
@@ -391,16 +396,17 @@ static void obj_pos_xyzCallback(const cv_tracker::image_obj_tracked& fused_objec
     isReady_obj_pos_xyz = true;
     UNLOCK(mtx_flag_obj_pos_xyz);
 
-    if (isReady_obj_pos_xyz && isReady_ndt_pose) {
+    // if (isReady_obj_pos_xyz && isReady_ndt_pose) {
+    if (isReady_obj_pos_xyz) {
       locatePublisher();
 
       LOCK(mtx_flag_obj_pos_xyz);
       isReady_obj_pos_xyz = false;
       UNLOCK(mtx_flag_obj_pos_xyz);
 
-      LOCK(mtx_flag_ndt_pose);
-      isReady_ndt_pose    = false;
-      UNLOCK(mtx_flag_ndt_pose);
+      // LOCK(mtx_flag_ndt_pose);
+      // isReady_ndt_pose    = false;
+      // UNLOCK(mtx_flag_ndt_pose);
     }
     //  }
 }
@@ -421,37 +427,37 @@ static void position_getter_gnss(const geometry_msgs::PoseStamped &pose){
 }
 #endif
 
-static void position_getter_ndt(const geometry_msgs::PoseStamped &pose){
-  //In Autoware axel x and axel y is opposite
-  //but once they is converted to calculate.
-  current_pose_time = pose.header.stamp;
-  ndt_loc.X = pose.pose.position.x;
-  ndt_loc.Y = pose.pose.position.y;
-  ndt_loc.Z = pose.pose.position.z;
+// static void position_getter_ndt(const geometry_msgs::PoseStamped &pose){
+//   //In Autoware axel x and axel y is opposite
+//   //but once they is converted to calculate.
+//   current_pose_time = pose.header.stamp;
+//   ndt_loc.X = pose.pose.position.x;
+//   ndt_loc.Y = pose.pose.position.y;
+//   ndt_loc.Z = pose.pose.position.z;
 
-  GetRPY(pose.pose,ndt_angle.thiX,ndt_angle.thiY,ndt_angle.thiZ);
-  printf("quaternion angle : %f\n",ndt_angle.thiZ*180/M_PI);
-  printf("location : %f %f %f\n",ndt_loc.X,ndt_loc.Y,ndt_loc.Z);
+//   GetRPY(pose.pose,ndt_angle.thiX,ndt_angle.thiY,ndt_angle.thiZ);
+//   printf("quaternion angle : %f\n",ndt_angle.thiZ*180/M_PI);
+//   printf("location : %f %f %f\n",ndt_loc.X,ndt_loc.Y,ndt_loc.Z);
 
-  ndtGetFlag = true;
+//   ndtGetFlag = true;
 
-  //Confirm ndt_pose is subscribed
-  LOCK(mtx_flag_ndt_pose);
-  isReady_ndt_pose = true;
-  UNLOCK(mtx_flag_ndt_pose);
+//   //Confirm ndt_pose is subscribed
+//   LOCK(mtx_flag_ndt_pose);
+//   isReady_ndt_pose = true;
+//   UNLOCK(mtx_flag_ndt_pose);
 
-    if (isReady_obj_pos_xyz && isReady_ndt_pose) {
-      locatePublisher();
+//     if (isReady_obj_pos_xyz && isReady_ndt_pose) {
+//       locatePublisher();
 
-      LOCK(mtx_flag_obj_pos_xyz);
-      isReady_obj_pos_xyz = false;
-      UNLOCK(mtx_flag_obj_pos_xyz);
+//       LOCK(mtx_flag_obj_pos_xyz);
+//       isReady_obj_pos_xyz = false;
+//       UNLOCK(mtx_flag_obj_pos_xyz);
 
-      LOCK(mtx_flag_ndt_pose);
-      isReady_ndt_pose    = false;
-      UNLOCK(mtx_flag_ndt_pose);
-    }
-}
+//       LOCK(mtx_flag_ndt_pose);
+//       isReady_ndt_pose    = false;
+//       UNLOCK(mtx_flag_ndt_pose);
+//     }
+// }
 
 int main(int argc, char **argv){
 
@@ -461,7 +467,7 @@ int main(int argc, char **argv){
   ready_ = false;
 
   isReady_obj_pos_xyz = false;
-  isReady_ndt_pose    = false;
+  // isReady_ndt_pose    = false;
 
   /**
    * NodeHandle is the main access point to communications with the ROS system.
@@ -474,6 +480,7 @@ int main(int argc, char **argv){
   private_nh.param<std::string>("projection_matrix_topic", projectionMat_topic_name, "/projection_matrix");
   std::string camera_info_topic_name;
   private_nh.param<std::string>("camera_info_topic", camera_info_topic_name, "/camera/camera_info");
+  private_nh.param<std::string>("target_frame_id", target_frame_id, "velodyne");
 
   //get camera ID
   std::string camera_id_str = camera_info_topic_name;
@@ -484,28 +491,28 @@ int main(int argc, char **argv){
 
   ros::Subscriber obj_pos_xyz = n.subscribe("image_obj_tracked", 1, obj_pos_xyzCallback);
 
-  ros::Subscriber ndt_pose = n.subscribe("/current_pose", 1, position_getter_ndt);
+  // ros::Subscriber ndt_pose = n.subscribe("/current_pose", 1, position_getter_ndt);
   pub = n.advertise<cv_tracker::obj_label>("obj_label",1);
   marker_pub = n.advertise<visualization_msgs::MarkerArray>("obj_label_marker", 1);
 
 #ifdef HAVE_JSK_PLUGIN
-  jsk_bounding_box_pub = n.advertise<jsk_recognition_msgs::BoundingBoxArray>("obj_lavel_bounding_box", 1);
+  jsk_bounding_box_pub = n.advertise<jsk_recognition_msgs::BoundingBoxArray>("obj_label_bounding_box", 1);
 #endif
 
   ros::Subscriber projection = n.subscribe(projectionMat_topic_name, 1, projection_callback);
   ros::Subscriber camera_info = n.subscribe(camera_info_topic_name, 1, camera_info_callback);
 
-  //set angle and position flag : false at first
-  gnssGetFlag = false;
-  ndtGetFlag = false;
+  // //set angle and position flag : false at first
+  // gnssGetFlag = false;
+  // ndtGetFlag = false;
 
   tf::TransformListener listener;
   ros::Rate loop_rate(LOOP_RATE);  // Try to loop in "LOOP_RATE" [Hz]
   while(n.ok())
     {
-      /* try to get coordinate system conversion from "camera" to "map" */
+      /* try to get coordinate system conversion from "camera" to target */
       try {
-        listener.lookupTransform("map", camera_id_str, ros::Time(0), transformCam2Map);
+        listener.lookupTransform(target_frame_id, camera_id_str, ros::Time(0), transformCam2Lidar);
       }
       catch (tf::TransformException ex) {
         ROS_INFO("%s", ex.what());
