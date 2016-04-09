@@ -1,0 +1,10 @@
+<?xml version='1.0' encoding='utf-8'?>
+<interface>
+  <nodes>
+    <node>
+      <name>lane_detector</name>
+      <in>image_raw</in>
+      <out>lane_pos_xy</out>
+    </node>
+  </nodes>
+</interface>

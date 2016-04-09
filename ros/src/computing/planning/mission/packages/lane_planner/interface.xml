@@ -1,0 +1,37 @@
+<?xml version='1.0' encoding='utf-8'?>
+<interface>
+  <nodes>
+    <node>
+      <name>lane_navi</name>
+      <in>route_cmd</in>
+      <in>vector_map_info/point_class</in>
+      <in>vector_map_info/lane</in>
+      <in>vector_map_info/node</in>
+      <out>lane_waypoints_array</out>
+    </node>
+    <node>
+      <name>lane_rule</name>
+      <in>lane_waypoints_array</in>
+      <in>vector_map_info/point_class</in>
+      <in>vector_map_info/lane</in>
+      <in>vector_map_info/node</in>
+      <in>vector_map_info/stop_line</in>
+      <in>vector_map_info/dtlane</in>
+      <out>traffic_waypoints_array</out>
+      <out>red_waypoints_array</out>
+      <out>green_waypoints_array</out>
+    </node>
+    <node>
+      <name>lane_select</name>
+      <in>lane_waypoints_array</in>
+      <out>base_points</out>
+    </node>
+    <node>
+      <name>lane_stop</name>
+      <in>red_waypoints_array</in>
+      <in>green_waypoints_array</in>
+      <in>traffic_light</in>
+      <out>traffic_waypoints_array</out>
+    </node>
+  </nodes>
+</interface>

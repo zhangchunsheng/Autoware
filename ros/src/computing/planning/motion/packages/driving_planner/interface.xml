@@ -1,0 +1,46 @@
+<?xml version='1.0' encoding='utf-8'?>
+<interface>
+  <nodes>
+    <node>
+      <name>lattice_trajectory_gen</name>
+      <in>base_waypoints</in>
+      <in>odom_pose</in>
+      <in>control_pose</in>
+      <in>can_info</in>
+      <out>spline</out>
+      <out>state</out>
+      <out>cubic_splines_viz</out>
+      <out>next_waypoint_mark</out>
+    </node>
+    <node>
+      <name>lattice_twist_convert</name>
+      <in>spline</in>
+      <in>state</in>
+      <out>twist_raw</out>
+    </node>
+    <node>
+      <name>velocity_set</name>
+      <in>localizer_pose</in>
+      <in>control_pose</in>
+      <in>odom_pose</in>
+      <in>vscan_points</in>
+      <in>base_waypoints</in>
+      <in>obj_pose</in>
+      <in>estimated_vel_mps</in>
+      <in>vector_map_info/cross_walk</in>
+      <in>vector_map_info/area_class</in>
+      <in>vector_map_info/line_class</in>
+      <in>vector_map_info/point_class</in>
+      <out>detection_range</out>
+      <out>sound_player</out>
+      <out>temporal_waypoints</out>
+      <out>closest_waypoint</out>
+      <out>obstacle</out>
+    </node>
+    <node>
+      <name>path_select</name>
+      <in>temporal_waypoints</in>
+      <out>final_waypoints</out>
+    </node>
+  </nodes>
+</interface>

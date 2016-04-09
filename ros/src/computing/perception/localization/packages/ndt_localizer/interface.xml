@@ -1,0 +1,36 @@
+<?xml version='1.0' encoding='utf-8'?>
+<interface>
+  <nodes>
+    <node>
+      <name>local2global</name>
+      <in>gnss_pose</in>
+      <in>points_map</in>
+      <out>current_pose</out>
+      <out>control_pose</out>
+    </node>
+    <node>
+      <name>ndt_mapping</name>
+      <in>points_raw</in>
+      <out>ndt_map</out>
+      <out>current_pose</out>
+    </node>
+    <node>
+      <name>ndt_matching</name>
+      <in>points_map</in>
+      <in>points_raw</in>
+      <in>gnss_pose</in>
+      <in>initialpose</in>
+      <in>hokuyo_3d/hokuyo_cloud2</in>
+      <out>predict_pose</out>
+      <out>ndt_pose</out>
+      <out>current_pose</out>
+      <out>control_pose</out>
+      <out>localizer_pose</out>
+      <out>estimate_twist</out>
+      <out>estimate_vel_mps</out>
+      <out>estimate_vel_kmph</out>
+      <out>time_ndt_matching</out>
+      <out>ndt_stat</out>
+    </node>
+  </nodes>
+</interface>

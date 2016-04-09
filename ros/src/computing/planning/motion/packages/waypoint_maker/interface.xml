@@ -1,0 +1,33 @@
+<?xml version='1.0' encoding='utf-8'?>
+<interface>
+  <nodes>
+    <node>
+      <name>waypoint_clicker</name>
+      <in>clicked_point</in>
+      <in>vector_map_info/point_class</in>
+      <in>vector_map_info/lane</in>
+      <in>vector_map_info/node</in>
+      <out>waypoint_guide</out>
+    </node>
+    <node>
+      <name>waypoint_loader</name>
+      <out>lane_waypoint_array</out>
+    </node>
+    <node>
+      <name>waypoint_marker_publisher</name>
+      <in>traffic_light</in>
+      <in>lane_waypoints_array</in>
+      <in>traffic_waypoints_array</in>
+      <in>temporal_waypoints</in>
+      <in>closest_waypoint</in>
+      <out>lane_waypoint_mark</out>
+    </node>
+    <node>
+      <name>waypoint_saver</name>
+      <in>current_pose</in>
+      <in>can_info</in>
+      <in>estimate_twist</in>
+      <out>waypoint_saver_mark</out>
+    </node>
+  </nodes>
+</interface>

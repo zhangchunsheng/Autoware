@@ -1,0 +1,30 @@
+<?xml version='1.0' encoding='utf-8'?>
+<interface>
+  <nodes>
+    <node>
+      <name>feat_proj</name>
+      <in>vector_map_info/point_class</in>
+      <in>vector_map_info/line_class</in>
+      <in>vector_map_info/vector_class</in>
+      <in>vector_map_info/lane</in>
+      <in>vector_map_info/signal</in>
+      <in>vector_map_info/white_line</in>
+      <in>vector_map_info/dtlane</in>
+      <out>roi_signal</out>
+    </node>
+    <node>
+      <name>region_tlr</name>
+      <in>image_raw</in>
+      <in>roi_signal</in>
+      <in>tuned_result</in>
+      <out>light_color</out>
+      <out>sound_player</out>
+      <out>tlr_result</out>
+    </node>
+    <node>
+      <name>tlr_tuner</name>
+      <in>image_raw</in>
+      <out>tuned_result</out>
+    </node>
+  </nodes>
+</interface>

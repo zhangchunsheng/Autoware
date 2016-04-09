@@ -1,0 +1,17 @@
+<?xml version='1.0' encoding='utf-8'?>
+<interface>
+  <nodes>
+    <node>
+      <name>fix2tfpose</name>
+      <in>fix</in>
+      <out>gnss_pose</out>
+      <out>gnss_stat</out>
+    </node>
+    <node>
+      <name>nmea2tfpose</name>
+      <in>nmea_sentence</in>
+      <out>gnss_pose</out>
+      <out>gnss_stat</out>
+    </node>
+  </nodes>
+</interface>

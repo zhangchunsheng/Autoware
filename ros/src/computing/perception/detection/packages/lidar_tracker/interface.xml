@@ -1,0 +1,29 @@
+<?xml version='1.0' encoding='utf-8'?>
+<interface>
+  <namespaces>
+    <namespace>obj_car</namespace>
+    <namespace>obj_person</namespace>
+  </namespaces>
+  <nodes>
+    <node>
+      <name>euclidean_cluster</name>
+      <in>points_raw</in>
+      <out>points_cluster</out>
+      <out>points_ground</out>
+      <out>points_filtered</out>
+      <out>cluster_centroids</out>
+      <out>centroid_marker</out>
+    </node>
+    <node>
+      <name>obj_fusion</name>
+      <in>obj_label</in>
+      <in>cluster_centroids</in>
+      <out>obj_pose</out>
+    </node>
+    <node>
+      <name>vscan_filling</name>
+      <in>vscan_points</in>
+      <out>vscan_filling_cloud</out>
+    </node>
+  </nodes>
+</interface>

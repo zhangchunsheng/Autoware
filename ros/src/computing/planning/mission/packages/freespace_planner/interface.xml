@@ -1,0 +1,17 @@
+<?xml version='1.0' encoding='utf-8'?>
+<interface>
+  <nodes>
+    <node>
+      <name>astar_navi</name>
+      <in>map</in>
+      <in>initialpose</in>
+      <in>move_base_simple/goal</in>
+      <out>start_pose</out>
+      <out>car_footprint</out>
+      <out>lane_waypoint</out>
+      <out>traffic_waypoint</out>
+      <out>poses</out>
+      <out>static_map</out>
+    </node>
+  </nodes>
+</interface>

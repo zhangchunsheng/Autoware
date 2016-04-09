@@ -1,0 +1,19 @@
+<?xml version='1.0' encoding='utf-8'?>
+<category>
+  <group>
+    <name>Localization</name>
+    <path>computing/perception/localization</path>
+  </group>
+  <group>
+    <name>Detection</name>
+    <path>computing/perception/detection</path>
+  </group>
+  <group>
+    <name>Mission</name>
+    <path>computing/planning/mission</path>
+  </group>
+  <group>
+    <name>Motion</name>
+    <path>computing/planning/motion</path>
+  </group>
+</category>

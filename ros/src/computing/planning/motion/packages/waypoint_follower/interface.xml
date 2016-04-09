@@ -1,0 +1,31 @@
+<?xml version='1.0' encoding='utf-8'?>
+<interface>
+  <nodes>
+    <node>
+      <name>odom_gen</name>
+      <in>twist_cmd</in>
+      <in>initialpose</in>
+      <in>control_pose</in>
+      <in>gnss_pose</in>
+      <in>base_waypoints</in>
+      <out>odom_pose</out>
+    </node>
+    <node>
+      <name>pure_pursuit</name>
+      <in>final_waypoints</in>
+      <in>odom_pose</in>
+      <in>control_pose</in>
+      <in>estimate_twist</in>
+      <in>can_info</in>
+      <out>twist_raw</out>
+      <out>next_waypoint</out>
+      <out>next_target_mark</out>
+      <out>search_circle_mark</out>
+    </node>
+    <node>
+      <name>twist_filter</name>
+      <in>twist_raw</in>
+      <out>twist_filter</out>
+    </node>
+  </nodes>
+</interface>

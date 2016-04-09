@@ -53,6 +53,7 @@ import datetime
 import syslog
 import rtmgr
 import rospy
+import computing2
 import std_msgs.msg
 from std_msgs.msg import Bool
 from decimal import Decimal
@@ -222,8 +223,10 @@ class MyFrame(rtmgr.MyFrame):
 		self.all_tabs.append(tab)
 
 		parent = self.tree_ctrl_0.GetParent()
-		for i in range(2):
-			self.obj_get('tree_ctrl_' + str(i)).Destroy()
+		if '--old' in sys.argv:
+			for i in range(2):
+				self.obj_get('tree_ctrl_' + str(i)).Destroy()
+
 		items = self.load_yaml('computing.yaml')
 
 		self.add_params(items.get('params', []))
@@ -233,15 +236,20 @@ class MyFrame(rtmgr.MyFrame):
 
 		self.computing_cmd = {}
 		self.all_cmd_dics.append(self.computing_cmd)
-		for i in range(2):
-			tree_ctrl = self.create_tree(parent, items['subs'][i], None, None, self.computing_cmd)
-			tree_ctrl.ExpandAll()
-			tree_ctrl.SetBackgroundColour(wx.NullColour)
-			setattr(self, 'tree_ctrl_' + str(i), tree_ctrl)
 
-		self.Bind(CT.EVT_TREE_ITEM_CHECKED, self.OnTreeChecked)
+		if '--old' in sys.argv:
+			for i in range(2):
+				tree_ctrl = self.create_tree(parent, items['subs'][i], None, None, self.computing_cmd)
+				tree_ctrl.ExpandAll()
+				tree_ctrl.SetBackgroundColour(wx.NullColour)
+				setattr(self, 'tree_ctrl_' + str(i), tree_ctrl)
 
-		self.setup_buttons(items.get('buttons', {}), self.computing_cmd)
+			self.Bind(CT.EVT_TREE_ITEM_CHECKED, self.OnTreeChecked)
+
+			self.setup_buttons(items.get('buttons', {}), self.computing_cmd)
+		else:
+			panel = computing2.ComputingPanel(parent, -1)
+			panel.SetSize(panel.GetBestSize())
 
 		#
 		# for Interface tab
@@ -366,6 +374,10 @@ class MyFrame(rtmgr.MyFrame):
 		self.bitmap_logo = wx.StaticBitmap(self, wx.ID_ANY, bm)
 
 		rtmgr.MyFrame.__do_layout(self)
+
+		if '--old' not in sys.argv:
+			for i in range(2):
+				self.obj_get('tree_ctrl_' + str(i)).Destroy()
 
 		self.alias_grps = [
 			[ self.button_rviz_qs, self.button_rviz_map, self.button_rviz_sensing, self.button_rviz_computing,
@@ -2122,9 +2134,10 @@ class MyFrame(rtmgr.MyFrame):
 
 		add_pnls = [
 			self, 
-			self.tree_ctrl_0,
-			self.tree_ctrl_1,
 			self.tree_ctrl_data ]
+
+		if '--old' in sys.argv:
+			add_pnls += [ self.tree_ctrl_0, self.tree_ctrl_1 ]
 
 		for tab in self.all_tabs + add_pnls:
 			tab.SetBackgroundColour(col)
