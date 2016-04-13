@@ -160,10 +160,7 @@ static std::string makeSendDataDetectedObj(const cv_tracker::obj_label& cp_array
 {
   std::string timestamp;
   if(use_current_time  || cp_array.header.stamp.sec == 0) {
-    ros::WallTime wt = ros::WallTime::now();
-    ros::Time t;
-    t.sec = wt.sec;
-    t.nsec = wt.nsec;
+    ros::WallTime t = ros::WallTime::now();
     timestamp = getTimeStamp(t.sec, t.nsec);
   } else {
     timestamp = getTimeStamp(cp_array.header.stamp.sec, cp_array.header.stamp.nsec);
@@ -309,11 +306,8 @@ static void current_pose_cb(const geometry_msgs::PoseStamped &pose)
   pthread_mutex_lock(&pose_lock_);
   if(use_current_time) {
     geometry_msgs::PoseStamped n = pose;
-    ros::WallTime wt = ros::WallTime::now();
-    ros::Time t;
-    t.sec = wt.sec;
-    t.nsec = wt.nsec;
-    n.header.stamp = t;
+    ros::WallTime t = ros::WallTime::now();
+    n.header.stamp = ros::Time(t.sec, t.nsec);
     current_pose_position.push_back(n);
   } else {
     current_pose_position.push_back(pose);
