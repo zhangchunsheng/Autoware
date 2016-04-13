@@ -372,6 +372,7 @@ static void marker_publisher(const std_msgs::String& msg, int is_swap)
 {
   std::vector<std::string> db_data = split(msg.data, '\n');
   std::vector<std::string> cols;
+  ros::WallTime wnow = ros::WallTime::now();
   ros::Time now = ros::Time::now();
   geometry_msgs::Pose pose;
   int type;
@@ -431,8 +432,8 @@ static void marker_publisher(const std_msgs::String& msg, int is_swap)
       pose.orientation.z = 0;
       pose.orientation.w = 1;
     }
-    now_sec = now.toSec();
-    now_nsec = now.toNSec()%(1000*1000*1000);
+    now_sec = wnow.toSec();
+    now_nsec = wnow.toNSec()%(1000*1000*1000);
     get_timeval(cols[10].c_str(), &prv_sec, &prv_nsec);
     result_to_marker(cols[0], now, pose, type,
       (now_sec-prv_sec)*1000+(now_nsec-prv_nsec)/1000/1000, is_swap);
@@ -460,7 +461,7 @@ static void send_sql(time_t diff_sec)
   std::string data;
   string db_response;
   std_msgs::String msg;
-  ros::Time now = ros::Time::now();
+  ros::WallTime now = ros::WallTime::now();
   time_t now_sec = now.toSec() - diff_sec;
   int now_nsec = now.toNSec()%(1000*1000*1000);
   char timestr[64]; // "YYYY-mm-dd HH:MM:SS.sss..."
@@ -496,7 +497,7 @@ static void* intervalCall(void *unused)
   double diff_sec = args[1];
 
   if (args[0] != 0)
-    diff_sec += ros::Time::now().toSec() - args[0];
+    diff_sec += ros::WallTime::now().toSec() - args[0];
 #ifdef POS_DB_VERBOSE
   cout << "diff=" << diff_sec << endl;
 #endif /* POS_DB_VERBOSE */
