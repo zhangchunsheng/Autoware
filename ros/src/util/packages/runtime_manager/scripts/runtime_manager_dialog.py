@@ -1537,9 +1537,7 @@ class MyFrame(rtmgr.MyFrame):
 
 		proc = self.topics_echo_proc
 		if proc:
-			terminate_children(proc)
-			terminate(proc)
-			#proc.wait()
+			terminate(proc, wait=False)
 			self.topics_echo_proc = None
 
 	def topics_echo_th(self, ev):
@@ -1749,10 +1747,7 @@ class MyFrame(rtmgr.MyFrame):
 		if cmd_dic is None or cmd is None:
 			return
 
-		# ROSBAG Record modify
-		sigint = (key == 'rosbag_record')
-
-		proc = self.launch_kill(False, cmd, proc, sigint=sigint, obj=obj)
+		proc = self.launch_kill(False, cmd, proc, obj=obj)
 		cmd_dic[obj] = (cmd, proc)
 
 		self.toggle_enable_obj(obj)
@@ -2026,7 +2021,7 @@ class MyFrame(rtmgr.MyFrame):
 				return (cmd_dic, obj)
 		return (None, None)
 
-	def launch_kill(self, v, cmd, proc, add_args=None, sigint=False, obj=None):
+	def launch_kill(self, v, cmd, proc, add_args=None, sigint=True, obj=None):
 		msg = None
 		msg = 'already launched.' if v and proc else msg
 		msg = 'already terminated.' if not v and proc is None else msg
@@ -2063,9 +2058,11 @@ class MyFrame(rtmgr.MyFrame):
 				thinf = th_start(f, {'file':proc.stdout})
 				self.all_th_infs.append(thinf)
 		else:
-			terminate_children(proc, sigint)
-			terminate(proc, sigint)
-			proc.wait()
+			try:
+				terminate(proc, sigint)
+			except psutil.NoSuchProcess:
+				print 'NoSuchProcess pid={}'.format(proc.pid)
+
 			if proc in self.all_procs:
 				self.all_procs.remove(proc)
 				self.all_procs_nodes.pop(proc, None)
@@ -3105,16 +3102,15 @@ def load_yaml(filename, def_ret=None):
 	f.close()
 	return d
 
-def terminate_children(proc, sigint=False):
+def terminate(proc, sigint=True, wait=True):
 	for child in psutil.Process(proc.pid).get_children():
-		terminate_children(child, sigint)
 		terminate(child, sigint)
-
-def terminate(proc, sigint=False):
 	if sigint:
 		proc.send_signal(signal.SIGINT)
 	else:
 		proc.terminate()
+	if wait:
+		proc.wait()
 
 def th_start(target, kwargs={}):
 	ev = threading.Event()
