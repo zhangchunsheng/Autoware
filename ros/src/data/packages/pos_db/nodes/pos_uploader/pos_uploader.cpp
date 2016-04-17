@@ -169,7 +169,7 @@ static std::string makeSendDataDetectedObj(const cv_tracker::obj_label& cp_array
   std::string ret;
   for (const auto& point : cp_array.reprojected_pos) {
     //create sql
-    ret += point_to_insert_statement(point, timestamp, name);
+    ret += point_to_insert_statement(point.position, timestamp, name);
     ret += "\n";
   }
 
@@ -258,17 +258,17 @@ static void* intervalCall(void *unused)
 static void car_locate_cb(const visualization_msgs::MarkerArray& obj_pose_msg)
 {
 	if (obj_pose_msg.markers.size() > 0) {
-		geometry_msgs::Point tmpPoint;
+		geometry_msgs::Pose tmpPose;
 		cv_tracker::obj_label tmpLabel;
 
 		pthread_mutex_lock(&pose_lock_);
 
 		for (visualization_msgs::Marker tmpMarker : obj_pose_msg.markers) {
-			tmpPoint.x = tmpMarker.pose.position.x;
-			tmpPoint.y = tmpMarker.pose.position.y;
-			tmpPoint.z = tmpMarker.pose.position.z;
+			tmpPose.position.x = tmpMarker.pose.position.x;
+			tmpPose.position.y = tmpMarker.pose.position.y;
+			tmpPose.position.z = tmpMarker.pose.position.z;
 
-			tmpLabel.reprojected_pos.push_back(tmpPoint);
+			tmpLabel.reprojected_pos.push_back(tmpPose);
 		}
 
 		car_positions_array.push_back(tmpLabel);
@@ -281,17 +281,17 @@ static void car_locate_cb(const visualization_msgs::MarkerArray& obj_pose_msg)
 static void person_locate_cb(const visualization_msgs::MarkerArray &obj_pose_msg)
 {
 	if (obj_pose_msg.markers.size() > 0) {
-		geometry_msgs::Point tmpPoint;
+		geometry_msgs::Pose tmpPose;
 		cv_tracker::obj_label tmpLabel;
 
 		pthread_mutex_lock(&pose_lock_);
 
 		for (visualization_msgs::Marker tmpMarker : obj_pose_msg.markers) {
-			tmpPoint.x = tmpMarker.pose.position.x;
-			tmpPoint.y = tmpMarker.pose.position.y;
-			tmpPoint.z = tmpMarker.pose.position.z;
+			tmpPose.position.x = tmpMarker.pose.position.x;
+			tmpPose.position.y = tmpMarker.pose.position.y;
+			tmpPose.position.z = tmpMarker.pose.position.z;
 
-			tmpLabel.reprojected_pos.push_back(tmpPoint);
+			tmpLabel.reprojected_pos.push_back(tmpPose);
 		}
 
 		person_positions_array.push_back(tmpLabel);

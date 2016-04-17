@@ -170,7 +170,7 @@ void obj_label_cb(const cv_tracker::obj_label& obj_label_msg)
     LOCK(mtx_reprojected_positions);
     for (const auto& point : obj_label_msg.reprojected_pos)
         {
-            reprojected_positions.push_back(point);
+            reprojected_positions.push_back(point.position);
         }
     UNLOCK(mtx_reprojected_positions);
 

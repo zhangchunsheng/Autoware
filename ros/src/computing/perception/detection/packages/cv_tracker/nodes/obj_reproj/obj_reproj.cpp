@@ -44,6 +44,7 @@
 #include <sstream>
 #include <sys/time.h>
 #include <bitset>
+#include <map>
 
 #include <opencv/cv.h>
 #include <opencv/highgui.h>
@@ -88,6 +89,7 @@ typedef struct _OBJPOS{
   int x2;
   int y2;
   float distance;
+  int obj_id;
 }OBJPOS;
 
 static objLocation ol;
@@ -177,7 +179,7 @@ static visualization_msgs::MarkerArray convert_marker_array(const cv_tracker::ob
       marker.type = visualization_msgs::Marker::SPHERE;
 
       /* set pose of marker  */
-      marker.pose.position = reproj_pos;
+      marker.pose = reproj_pos;
 
       /* set scale of marker */
       marker.scale.x = (double)1.5;
@@ -214,7 +216,7 @@ static jsk_recognition_msgs::BoundingBoxArray convertJskBoundingBoxArray(const c
       jsk_recognition_msgs::BoundingBox bounding_box;
       bounding_box.header.frame_id = target_frame_id;
 
-      bounding_box.pose.position = reproj_pos;
+      bounding_box.pose = reproj_pos;
 
       bounding_box.dimensions.x = 1.5;
       bounding_box.dimensions.y = 1.5;
@@ -260,13 +262,50 @@ void GetRPY(const geometry_msgs::Pose &pose,
   yaw   = -yaw;
 }
 
+static geometry_msgs::Quaternion estimateOrientation(const geometry_msgs::Point& current,
+                                                     const int& obj_id,
+                                                     const std::map<int, geometry_msgs::Point>& previous_series) {
+
+  geometry_msgs::Quaternion estimated_orientation;
+  estimated_orientation.x = 0.0;
+  estimated_orientation.y = 0.0;
+  estimated_orientation.z = 0.0;
+  estimated_orientation.w = 0.0;
+
+  /* If previous frame's locations don't exist,
+     prediction will fail. So return (0, 0, 0, 0) */
+  if (previous_series.empty()) {
+    return estimated_orientation;
+  }
+
+  /* Search previous position and
+     estimate orientation if one exists */
+  auto find_result = previous_series.find(obj_id);
+  if (find_result != previous_series.end()) { // Surely previous location exit
+    auto previous = find_result->second;
+    tf::Vector3 direction(current.x - previous.x,
+                          current.y - previous.y,
+                          current.z - previous.z);
+
+    double yaw = atan(direction.x() / (-1 * direction.y()));
+    double pitch = atan( sqrt( pow(direction.x(), 2) + pow(direction.y(), 2) ) / direction.z() );
+    double roll = 0.0;  // roll cannot be estimated from direction vector
+
+    estimated_orientation = tf::createQuaternionMsgFromRollPitchYaw(roll, pitch, yaw);
+  }
+
+  return estimated_orientation;
+}
+
+
 void makeSendDataDetectedObj(vector<OBJPOS> car_position_vector,
                              vector<OBJPOS>::iterator cp_iterator,
                              // LOCATION mloc,
                              // ANGLE angle,
                              cv_tracker::obj_label& send_data)
 {
-  geometry_msgs::Point tmpPoint;
+  geometry_msgs::Pose tmpPose;
+  static std::map<int, geometry_msgs::Point> pre_location;
 
   for(uint i=0; i<car_position_vector.size() ; i++, cp_iterator++){
 
@@ -282,12 +321,24 @@ void makeSendDataDetectedObj(vector<OBJPOS> car_position_vector,
     tf::Vector3 pos_in_camera_coord(ress.X, ress.Y, ress.Z);
     tf::Vector3 converted = transformCam2Lidar * pos_in_camera_coord;
 
-    tmpPoint.x = converted.x();
-    tmpPoint.y = converted.y();
-    tmpPoint.z = converted.z();
+    tmpPose.position.x = converted.x();
+    tmpPose.position.y = converted.y();
+    tmpPose.position.z = converted.z();
 
-    send_data.reprojected_pos.push_back(tmpPoint);
+    /* calculate estimated orientation of obstacle from two points */
+    tmpPose.orientation = estimateOrientation(tmpPose.position,
+                                              car_position_vector.at(i).obj_id,
+                                              pre_location);
+
+    send_data.reprojected_pos.push_back(tmpPose);
   }
+
+  // update pre_location by current ones
+  pre_location.clear();
+  for (uint i = 0; i < car_position_vector.size(); i++) {
+    pre_location[car_position_vector.at(i).obj_id] = send_data.reprojected_pos.at(i).position;
+  }
+
 }
 
 //wrap SendData class
@@ -386,6 +437,8 @@ static void obj_pos_xyzCallback(const cv_tracker::image_obj_tracked& fused_objec
         (As received distance is in [cm] unit, I convert unit from [cm] to [mm] here)
       */
       cp.distance = (fused_objects.rect_ranged.at(i).range - cameraMatrix[0][3]) * 10;
+
+      cp.obj_id = fused_objects.obj_id.at(i);
 
       global_cp_vector.push_back(cp);
     }
