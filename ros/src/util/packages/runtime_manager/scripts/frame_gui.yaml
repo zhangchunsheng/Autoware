@@ -1,0 +1,241 @@
+- panel : tab_qs
+  sizer : [ 0, 6 ]
+  ori   : h
+  prop  : 1
+  flags : [ expand ]
+  common:
+    kind  : toggle_button
+    hdr   : OnLaunchKill
+    prop  : 1
+    flags : [ all, center_v ]
+    bdr   : 4
+  subs  :
+  - name  : button_android_tablet_qs
+    label : Android Tablet
+  - name  : button_oculus_rift_qs
+    label : Oculus Rift
+  - name  : button_vehicle_gateway_qs
+    label : Vehicle Gateway
+  - name  : button_cloud_data_qs
+    label : Cloud Data
+
+- panel : tab_qs
+  sizer : [ 1 ]
+  ori   : h
+  flags : [ expand ]
+  subs  :
+  - ori   : h
+    prop  : 1
+    flags : [ expand ]
+    subs  :
+    - name  : button_auto_pilot_qs
+      kind  : toggle_button
+      label : Auto Pilot
+      hdr   : OnAutoPilot
+      size  : [ 135, 29 ]
+      flags : [ all, center_v ]
+      bdr   : 4
+
+- panel : tab_sensing
+  sizer : [ 0, 1, 1 ]
+  ori   : v
+  label : ''
+  prop  : 2
+  flags : [ top, expand ]
+  bdr   : 8
+  common:
+    kind  : toggle_button
+    hdr   : OnLaunchKill
+    prop  : 1
+    flags : [ all, expand, center_h ]
+    bdr   : 4
+  subs  :
+    - name  : button_calibration_toolkit
+      label : Calibration Toolkit
+    - name  : button_calibration_publisher
+      label : Calibration Publisher
+
+- panel : tab_sensing
+  sizer : [ 0, 1, 2 ]
+  ori   : v
+  label : ''
+  prop  : 3
+  flags : [ top, bottom, expand ]
+  bdr   : 8
+  common:
+    kind  : toggle_button
+    hdr   : OnLaunchKill
+    prop  : 1
+    flags : [ all, expand, center_h ]
+    bdr   : 4
+  subs  :
+    - name  : button_points_image
+      label : Points Image
+    - name  : button_virtual_scan_image
+      label : Virtual Scan Image
+    - name  : button_scan_image
+      label : Scan Image
+
+- panel : tab_computing
+  sizer : [ 1, 0, -1 ]
+  name  : button_synchronization
+  kind  : toggle_button
+  label : Synchronization
+  hdr   : OnLaunchKill  
+  flags : [ all ]
+  bdr   : 4
+
+- panel : tab_interface
+  sizer : [ 0, -1 ]
+  ori   : h
+  label : ''
+  prop  : 3
+  flags : [ all, expand ]
+  bdr   : 4
+  common:
+    kind : toggle_button
+    hdr  : OnLaunchKill
+    prop : 1
+    flags : [ all, center_v ]
+    bdr   : 4
+  subs  :
+  - name  : button_aisin_aw
+    label : Aisin AW
+  - name  : button_android_tablet_interface
+    label : Android Tablet
+  - name  : button_oculus_rift_interface
+    label : Oculus Rift
+  - name  : button_vehicle_gateway_interface
+    label : Vehicle Gateway
+
+- panel : tab_interface
+  sizer : [ 0, -1 ]
+  ori   : v
+  label : ''
+  prop  : 1
+  flags : [ all, expand ]
+  bdr   : 4
+  subs  :
+  - name  : checkbox_sound
+    kind  : checkbox
+    label : Sound
+    hdr   : OnLaunchKill
+    prop  : 1
+    flags : [ all, center_h ]
+    bdr   : 4
+
+- panel : tab_simulation
+  sizer : [ 1, 0 ]
+  ori   : h
+  prop  : 1
+  flags : [ expand ]
+  common:
+    kind  : toggle_button
+    hdr   : OnRosbagPlay
+    flags : [ all, cener_v ]
+    bdr   : 4
+  subs  :
+  - name  : button_play_rosbag_play
+    label : Play
+  - name  : button_stop_rosbag_play
+    label : Stop
+    value : True
+    enable: False
+  - name  : button_pause_rosbag_play
+    label : Pause
+    enable: False
+
+- panel : tab_status
+  sizer : [ 2, 0, 0 ]
+  name  : button_system_monitor
+  kind  : toggle_button
+  label : System Monitor
+  hdr   : OnLaunchKill
+  flags : [ all, center_v ]
+  bdr   : 4
+
+- panel : tab_topics
+  sizer : [ 1, 0 ]
+  name  : button_refresh_topics
+  kind  : button
+  label : Refresh
+  hdr   : OnRefreshTopics
+  flags : [ all, center_v ]
+  bdr   : 4
+
+- copy :
+  # src
+  - ori   : h
+    flags : [ expand ]
+    common:
+      kind  : toggle_button
+      hdr   : OnLaunchKill
+      flags : [ all, cener_v ]
+      bdr   : 4
+    subs  :
+    - label : ROSBAG
+      hdr   : OnRosbagRecord
+    - label : RViz
+    - label : RQT
+
+  # dst
+  - panel : tab_qs
+    sizer : [ 1, -1 ]
+    subs  :
+    - name  : button_rosbag_qs
+    - name  : button_rviz_qs
+    - name  : button_rqt_qs
+  - panel : tab_setup
+    sizer : [ 1, -1 ]
+    subs  :
+    - name  : button_rosbag_setup
+    - name  : button_rviz_setup
+    - name  : button_rqt_setup
+  - panel : tab_map
+    sizer : [ 2, -1 ]
+    subs  :
+    - name  : button_rosbag_map
+    - name  : button_rviz_map
+    - name  : button_rqt_map
+  - panel : tab_sensing
+    sizer : [ 1, -1 ]
+    subs  :
+    - name  : button_rosbag_sensing
+    - name  : button_rviz_sensing
+    - name  : button_rqt_sensing
+  - panel : tab_computing
+    sizer : [ 1, -1 ]
+    subs  :
+    - name  : button_rosbag_computing
+    - name  : button_rviz_computing
+    - name  : button_rqt_computing
+  - panel : tab_interface
+    sizer : [ 3, -1 ]
+    subs  :
+    - name  : button_rosbag_interface
+    - name  : button_rviz_interface
+    - name  : button_rqt_interface
+  - panel : tab_database
+    sizer : [ 1, -1 ]
+    subs  :
+    - name  : button_rosbag_database
+    - name  : button_rviz_database
+    - name  : button_rqt_database
+  - panel : tab_simulation
+    sizer : [ 3, -1 ]
+    subs  :
+    - name  : button_rosbag_simulation
+    - name  : button_rviz_simulation
+    - name  : button_rqt_simulation
+  - panel : tab_status
+    sizer : [ 2, -1 ]
+    subs  :
+    - name  : button_rosbag_status
+    - name  : button_rviz_status
+    - name  : button_rqt_status
+  - panel : tab_topics
+    sizer : [ 1, -1 ]
+    subs  :
+    - name  : button_rosbag_topics
+    - name  : button_rviz_topics
+    - name  : button_rqt_topics

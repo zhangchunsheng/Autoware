@@ -99,7 +99,10 @@ PROC_MANAGER_SOCK="/tmp/autoware_proc_manager"
 
 class MyFrame(rtmgr.MyFrame):
 	def __init__(self, *args, **kwds):
+		self.chg_lst = [ "__do_layout" ]
 		rtmgr.MyFrame.__init__(self, *args, **kwds)
+		self.chg_lst.remove("__do_layout")
+
 		self.all_procs = []
 		self.all_procs_nodes = {}
 		self.all_cmd_dics = []
@@ -392,7 +395,7 @@ class MyFrame(rtmgr.MyFrame):
 		bm = scaled_bitmap(wx.Bitmap(rtmgr_src_dir() + 'autoware_logo_1.png'), 0.2)
 		self.bitmap_logo = wx.StaticBitmap(self, wx.ID_ANY, bm)
 
-		rtmgr.MyFrame.__do_layout(self)
+		self.__do_layout()
 
 		cond = lambda s : s.startswith('tab_')
 		self.tab_names = [ self.name_get_cond(tab, cond=cond, def_ret='').replace('tab_', '', 1) for tab in self.all_tabs ]
@@ -497,7 +500,133 @@ class MyFrame(rtmgr.MyFrame):
 		self.SetIcon(icon)
 
 	def __do_layout(self):
-		pass
+		def dic_get(dic, key, def_ret=None):
+			def dic_get_common(dic, key, def_ret=None):
+				comm = dic.get('common', {})
+				if key in comm:
+					return comm.get(key)
+				parent = dic.get('parent')
+				return dic_get_common(parent, key, def_ret) if parent else def_ret
+
+			return dic.get(key) if key in dic else dic_get_common(dic.get('parent', {}), key, def_ret)
+
+		if "__do_layout" in self.chg_lst:
+			def copy_update(gui_lst):
+				def dic_merge(dst, src):
+					for (k,v) in src.items():
+						if k not in dst or k != 'subs':
+							dst[k] = v
+							continue
+						slst = src.get('subs')
+						dlst = dst.get('subs')
+						for (i, s) in enumerate(slst):
+							while i >= len(dlst):
+								dlst.append({})
+							dic_merge(dlst[i], s)
+				for dic in gui_lst[:]: # copy
+					if 'copy' in dic:
+						lst = dic.get('copy')
+						src = lst.pop(0)
+						for dst in lst:
+							dic_merge(dst, src)
+							gui_lst.append(dst)
+						gui_lst.remove(dic)
+
+			def frame_gui_create(panel, dic):
+				if 'subs' in dic:
+					for sub in dic.get('subs'):
+						sub['parent'] = dic
+						frame_gui_create(panel, sub)
+					return
+				kind_dic = {
+					'button': { 'type':wx.Button, 'evt':wx.EVT_BUTTON },
+					'toggle_button' : { 'type':wx.ToggleButton, 'evt':wx.EVT_TOGGLEBUTTON },
+					'checkbox' : { 'type':wx.CheckBox, 'evt':wx.EVT_CHECKBOX } }
+				kd = kind_dic.get(dic_get(dic, 'kind'))
+				if not kd:
+					return
+				obj = kd.get('type')(panel, wx.ID_ANY, dic.get('label', ''))
+				hdr = getattr(self, dic_get(dic, 'hdr'), None)
+				if hdr:
+					self.Bind(kd.get('evt'), hdr, obj)
+				if 'size' in dic:
+					obj.SetMinSize(dic.get('size'))
+				if 'enable' in dic:
+					obj.Enable(dic.get('enable'))
+				if 'value' in dic:
+					obj.SetValue(dic.get('value'))
+				if 'name' in dic:
+					setattr(self, dic.get('name'), obj)
+				dic['obj'] = obj
+
+			self.gui_lst = self.load_yaml('frame_gui.yaml', [])
+			copy_update(self.gui_lst)
+
+			for dic in self.gui_lst:
+				panel = getattr(self, dic.get('panel'), None)
+				dic['panel'] = panel
+				frame_gui_create(panel, dic)
+
+			# re-create staticbox for tooltip showing
+			is_sbox = lambda lst: len(lst) == 3 and lst[0] == 'sizer' and lst[2] == 'staticbox'
+			sbox_nms = [ nm for nm in dir(self) if is_sbox( nm.split('_') ) ]
+			for nm in sbox_nms:
+				sbox = getattr(self, nm)
+				parent = sbox.GetParent()
+				lb = sbox.GetLabel()
+				sbox.Destroy()
+				sbox = wx.StaticBox(parent, wx.ID_ANY, lb)
+				setattr(self, nm, sbox)
+			return
+
+		self.chg_lst.append("Layout")
+		rtmgr.MyFrame.__do_layout(self)
+		self.chg_lst.remove("Layout")
+
+		for dic in self.gui_lst:
+			def szr_set(szr, obj, dic, ins=-1):
+				prop = dic_get(dic, 'prop', 0)
+				flag = wx_flag_get(dic_get(dic, 'flags', []))
+				bdr = dic_get(dic, 'bdr', 0)
+				if ins < 0:
+					szr.Add(obj, prop, flag, bdr)
+				else:
+					szr.Insert(ins, obj, prop, flag, bdr)
+
+			def szr_get(szr, szr_path):
+				pos = szr_path.pop(0)
+				if len(szr_path) == 0:
+					return (szr, pos)
+				szr = szr.GetChildren()[pos].GetSizer()
+				return szr_get(szr, szr_path)
+
+			def frame_gui_layout(panel, dic, szr=None):
+				if 'subs' in dic:
+					ori = wx.VERTICAL if dic.get('ori', 'h')  == 'v' else wx.HORIZONTAL
+					label = dic.get('label')
+					obj = static_box_sizer(panel, label, ori) if label is not None else wx.BoxSizer(ori)
+					dic['obj'] = obj
+					for sub in dic.get('subs'):
+						frame_gui_layout(panel, sub, obj)
+				obj = dic.get('obj')
+				if szr and obj:
+					szr_set(szr, obj, dic)
+
+			panel = dic.get('panel')
+			frame_gui_layout(panel, dic)
+			obj = dic.get('obj')
+			szr_path = dic.get('sizer')
+			if szr_path is None:
+				panel.SetSizer(obj)
+			else:
+				(szr, pos) = szr_get(panel.GetSizer(), szr_path)
+				szr_set(szr, obj, dic, pos)
+		self.Layout()
+
+	def Layout(self):
+		if "Layout" in self.chg_lst:
+			return
+		rtmgr.MyFrame.Layout(self)
 
 	def OnClose(self, event):
 		self.kill_all()
