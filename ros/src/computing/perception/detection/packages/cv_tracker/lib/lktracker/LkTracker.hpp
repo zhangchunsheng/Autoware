@@ -28,6 +28,7 @@ class LkTracker
 
 	cv::Mat 				prev_image_;
 	cv::Mat 				current_image_;
+	cv::Mat					prev_image_rect_;
 	cv::TermCriteria 		term_criteria_;
 	cv::Size 				sub_pixel_window_size_;
 	cv::Size 				window_size_;
@@ -48,6 +49,7 @@ class LkTracker
 	void 					GetRectFromPoints(std::vector< cv::Point2f > in_corners_points, cv::Rect& out_boundingbox);
 	void 					ArrowedLine(cv::Mat& in_image, cv::Point in_point1, cv::Point in_point2, const cv::Scalar& in_color,
 								int in_thickness=1, int in_line_type=8, int in_shift=0, double in_tip_length=0.1);
+	double 					HistogramComparison(cv::Mat in_image_a, cv::Mat in_image_b);
 public:
 	int						object_id;
 	float					min_height_;
@@ -62,6 +64,7 @@ public:
 	unsigned int							GetRemainingLifespan();
 	void 									NullifyLifespan();
 	unsigned long int						GetFrameCount();
+	cv::Mat									GetPrevImageRect();
 };
 
 extern int klt_main(int argc, char* argv[]);

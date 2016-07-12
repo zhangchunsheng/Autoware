@@ -77,6 +77,9 @@ class RosTrackerApp
 
 	int					num_trackers_;
 
+	int					image_width_;
+	int					image_height_;
+
 	std::vector<LkTracker*> obj_trackers_;
 	std::vector<cv::LatentSvmDetector::ObjectDetection> obj_detections_;
 
@@ -142,7 +145,6 @@ class RosTrackerApp
 
 		for(unsigned int i=0; i< size; i++)
 		{
-
 			for(unsigned int j= i+1; j< size; j++)
 			{
 				if(is_suppresed[indices[i]] || is_suppresed[indices[j]])
@@ -164,7 +166,6 @@ class RosTrackerApp
 						{
 							in_out_source[indices[i]]->object_id = in_out_source[indices[j]]->object_id;
 						}
-
 					}
 				}
 			}
@@ -172,9 +173,37 @@ class RosTrackerApp
 		return ;
 	}
 
+	double HistogramComparison(cv::Mat in_image_a, cv::Mat in_image_b)
+	{
+		cv::Mat hsv_a, hsv_b;
+		//change color space to HSV
+		cv::cvtColor( in_image_a, hsv_a, cv::COLOR_BGR2HSV );
+		cv::cvtColor( in_image_b, hsv_b, cv::COLOR_BGR2HSV );
+
+		int h_bins = 50; int s_bins = 60;
+		int histSize[] = { h_bins, s_bins };
+		float h_ranges[] = { 0, 180 };
+		float s_ranges[] = { 0, 256 };
+
+		const float* ranges[] = { h_ranges, s_ranges };
+		int channels[] = { 0, 1 }; //use H,S channels
+
+		cv::MatND hist_a;
+		cv::MatND hist_b;
+
+		cv::calcHist( &hsv_a, 1, channels, cv::Mat(), hist_a, 2, histSize, ranges, true, false );
+		cv::normalize( hist_a, hist_a, 0, 1, cv::NORM_MINMAX, -1, cv::Mat() );
+
+		cv::calcHist( &hsv_b, 1, channels, cv::Mat(), hist_b, 2, histSize, ranges, true, false );
+		cv::normalize( hist_b, hist_b, 0, 1, cv::NORM_MINMAX, -1, cv::Mat() );
+
+		double corr = cv::compareHist( hist_a, hist_b, CV_COMP_CORREL);
+		return corr;
+	}
+
 	void publish_if_possible()
 	{
-		if (track_ready_ && detect_ready_)
+		if (track_ready_ /*&& detect_ready_*/)
 		{
 			publisher_tracked_objects_.publish(ros_objects_msg_);
 			track_ready_ = false;
@@ -193,6 +222,9 @@ public:
 		std::vector<bool> tracker_matched(obj_trackers_.size(), false);
 		std::vector<bool> object_matched(obj_detections_.size(), false);
 
+		image_width_ = image_track.cols;
+		image_height_ = image_track.rows;
+		//std::cout << "match ";
 		//check object detections vs current trackers
 		for (i =0; i< obj_detections_.size(); i++)
 		{
@@ -203,10 +235,10 @@ public:
 
 				cv::LatentSvmDetector::ObjectDetection tmp_detection = obj_detections_[i];
 				int area = tmp_detection.rect.width * tmp_detection.rect.height;
-				cv::Rect intersection = tmp_detection.rect & obj_trackers_[j]->GetTrackedObject().rect;
-				if ( (intersection.width * intersection.height) > area*0.3 )
+				cv::Rect intersection = tmp_detection.rect & obj_trackers_[j]->GetTrackedObject().rect & cv::Rect(0,0,image_track.cols, image_track.rows);
+				double patches_corr = HistogramComparison(image_track(intersection), obj_trackers_[j]->GetPrevImageRect());
+				if ( ((intersection.width * intersection.height) > area*0.4 )&& (patches_corr>0.8) )
 				{
-
 					obj_trackers_[j]->Track(image_track, obj_detections_[i], true);
 					tracker_matched[j] = true;
 					object_matched[i] = true;
@@ -215,6 +247,7 @@ public:
 			}
 		}
 
+		//std::cout << "track ";
 		//run the trackers not matched
 		for(i = 0; i < obj_trackers_.size(); i++)
 		{
@@ -223,7 +256,7 @@ public:
 				obj_trackers_[i]->Track(image_track, empty_detection, false);
 			}
 		}
-
+		//std::cout << "add ";
 		//create trackers for those objects not being tracked yet
 		for(unsigned int i=0; i<obj_detections_.size(); i++)
 		{
@@ -232,21 +265,32 @@ public:
 				if (num_trackers_ >10)
 					num_trackers_=0;
 				LkTracker* new_tracker = new LkTracker(++num_trackers_, min_heights_[i], max_heights_[i], ranges_[i]);
-				new_tracker->Track(image_track, obj_detections_[i], true);
+				cv::LatentSvmDetector::ObjectDetection tmp(obj_detections_[i]);
+				if(tmp.rect.x > image_track.cols)
+					tmp.rect.x = image_track.cols;
+				if((tmp.rect.x+tmp.rect.width) > image_track.cols)
+					tmp.rect.width = image_track.cols - tmp.rect.x;
+				if(tmp.rect.y > image_track.rows)
+					tmp.rect.y = image_track.rows;
+				if((tmp.rect.y+tmp.rect.height) > image_track.rows)
+					tmp.rect.height = image_track.rows - tmp.rect.y;
+				new_tracker->Track(image_track, tmp, true);
 
 				//std::cout << "added new tracker" << std::endl;
 				obj_trackers_.push_back(new_tracker);
 			}
 		}
+		//std::cout << "nms ";
+		ApplyNonMaximumSuppresion(obj_trackers_, 0.4);
 
-		ApplyNonMaximumSuppresion(obj_trackers_, 0.3);
-
+		//std::cout << "delete ";
 		//remove those trackers with its lifespan <=0
 		std::vector<LkTracker*>::iterator it;
 		for(it = obj_trackers_.begin(); it != obj_trackers_.end();)
 		{
 			if ( (*it)->GetRemainingLifespan()<=0 )
 			{
+				delete *it;
 				it = obj_trackers_.erase(it);
 				//std::cout << "deleted a tracker " << std::endl;
 			}
@@ -254,6 +298,7 @@ public:
 				it++;
 		}
 
+		//std::cout << "message ";
 		//copy results to ros msg
 		unsigned int num = obj_trackers_.size();
 		std::vector<cv_tracker::image_rect_ranged> rect_ranged_array;//tracked rectangles
@@ -309,18 +354,23 @@ public:
 		track_ready_ = true;
 		//ready_ = false;
 
+		//std::cout << "publish ";
 		publish_if_possible();
+
+		//std::cout << "end " << std::endl;
 
 	}
 
-	void detections_callback(cv_tracker::image_obj_ranged image_objects_msg)
+	//void detections_callback(cv_tracker::image_obj_ranged image_objects_msg)
+	void detections_callback(cv_tracker::image_obj image_objects_msg)
 	{
 		//if(ready_)
 		//	return;
 		if (!detect_ready_)//must NOT overwrite, data is probably being used by tracking.
 		{
 			unsigned int num = image_objects_msg.obj.size();
-			std::vector<cv_tracker::image_rect_ranged> objects = image_objects_msg.obj;
+			//std::vector<cv_tracker::image_rect_ranged> objects = image_objects_msg.obj;
+			std::vector<cv_tracker::image_rect> objects = image_objects_msg.obj;
 			tracked_type_ = image_objects_msg.type;
 			//points are X,Y,W,H and repeat for each instance
 			obj_detections_.clear();
@@ -329,43 +379,28 @@ public:
 			for (unsigned int i=0; i<num;i++)
 			{
 				cv::Rect tmp;
-				tmp.x = objects.at(i).rect.x;
+				/*tmp.x = objects.at(i).rect.x;
 				tmp.y = objects.at(i).rect.y;
 				tmp.width = objects.at(i).rect.width;
 				tmp.height = objects.at(i).rect.height;
 				obj_detections_.push_back(cv::LatentSvmDetector::ObjectDetection(tmp, 0));
 				ranges_.push_back(objects.at(i).range);
 				min_heights_.push_back(objects.at(i).min_height);
-				max_heights_.push_back(objects.at(i).max_height);
+				max_heights_.push_back(objects.at(i).max_height);*/
+				tmp.x = (objects.at(i).x >= 0) ? objects.at(i).x: 0;
+				tmp.y = (objects.at(i).y >= 0) ? objects.at(i).y: 0;
+				tmp.width = objects.at(i).width;
+				tmp.height = objects.at(i).height;
+				obj_detections_.push_back(cv::LatentSvmDetector::ObjectDetection(tmp, 0));
+				ranges_.push_back(0);
+				min_heights_.push_back(0);
+				max_heights_.push_back(1);
 			}
 			detect_ready_ = true;
 		}
-
 		publish_if_possible();
 		//ready_ = true;
 	}
-	/*void detections_callback(cv_tracker::image_obj image_objects_msg)
-	{
-		if (ready_)
-			return;
-		ready_ = false;
-		unsigned int num = image_objects_msg.obj.size();
-		std::vector<cv_tracker::image_rect> objects = image_objects_msg.obj;
-		//object_type = image_objects_msg.type;
-		//points are X,Y,W,H and repeat for each instance
-		obj_detections_.clear();
-		tracked_type_ = image_objects_msg.type;
-		for (unsigned int i=0; i<num;i++)
-		{
-			cv::Rect tmp;
-			tmp.x = objects.at(i).x;
-			tmp.y = objects.at(i).y;
-			tmp.width = objects.at(i).width;
-			tmp.height = objects.at(i).height;
-			obj_detections_.push_back(cv::LatentSvmDetector::ObjectDetection(tmp, 0));
-		}
-		ready_ = true;
-	}*/
 
 	void klt_config_cb()
 	{
@@ -396,7 +431,8 @@ public:
 		else
 		{
 			ROS_INFO("No object node received, defaulting to image_obj_ranged, you can use _img_obj_node:=YOUR_TOPIC");
-			image_obj_topic_str = "image_obj_ranged";
+			//image_obj_topic_str = "image_obj_ranged";
+			image_obj_topic_str = "image_obj";
 		}
 
 
@@ -409,7 +445,6 @@ public:
 
 		std::string config_topic("/config");
 		config_topic += ros::this_node::getNamespace() + "/klt";
-		//node_handle.subscribe(config_topic, 1, &RosTrackerApp::klt_config_cb, this);
 
 		ros::spin();
 		ROS_INFO("END klt");

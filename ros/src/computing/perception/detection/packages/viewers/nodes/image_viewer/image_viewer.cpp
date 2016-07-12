@@ -66,9 +66,7 @@ static const int OBJ_RECT_THICKNESS = 3;
 
 static bool _drawing = false;
 static bool car_track_ready = false;
-static bool car_dpm_ready = false;
 static bool ped_track_ready = false;
-static bool ped_dpm_ready = false;
 
 static bool car_image_obj_ready = false;
 static bool pedestrian_image_obj_ready = false;
@@ -121,11 +119,11 @@ static void drawDetections(std::vector<cv::Rect> dets, std::vector<float> scores
 			&text_size,
 			&baseline);
 
-		//cvRectangle( &frame,
-			//cvPoint(dets[i].x, dets[i].y),
-			//cvPoint(dets[i].x+dets[i].width, dets[i].y+dets[i].height),
-			//CV_RGB(0, 0, 255), OBJ_RECT_THICKNESS, CV_AA, 0);
-		cvCircle(&frame, cvPoint(dets[i].x+dets[i].width/2, dets[i].y+dets[i].height/2), 30, cvScalar(0,255,0),3);		/* draw object label */
+		cvRectangle( &frame,
+			cvPoint(dets[i].x, dets[i].y),
+			cvPoint(dets[i].x+dets[i].width, dets[i].y+dets[i].height),
+			CV_RGB(0, 0, 255), OBJ_RECT_THICKNESS, CV_AA, 0);
+		//cvCircle(&frame, cvPoint(dets[i].x+dets[i].width/2, dets[i].y+dets[i].height/2), 30, cvScalar(0,255,0),3);		/* draw object label */
 		CvPoint textOrg = cvPoint(dets[i].x - OBJ_RECT_THICKNESS, dets[i].y - baseline - OBJ_RECT_THICKNESS);
 
 		cvRectangle(&frame,
@@ -163,7 +161,8 @@ static void drawTracked(std::vector<cv::Rect> dets, std::vector<int> lifespan, s
 
 		putText(imageTrack, text.c_str(), cv::Point(dets[i].x + 4, dets[i].y + 15),
 			cv::FONT_HERSHEY_SIMPLEX, 0.55, _colors[obj_id[i]], 2);
-		cv::circle(imageTrack, cv::Point(dets[i].x+dets[i].width/2, dets[i].y+dets[i].height/2), 30, _colors[obj_id[i]],3);
+		//cv::circle(imageTrack, cv::Point(dets[i].x+dets[i].width/2, dets[i].y+dets[i].height/2), 30, _colors[obj_id[i]],3);
+		rectangle(imageTrack, dets[i], _colors[obj_id[i]], 3);
 	}
 }
 
@@ -181,10 +180,10 @@ static void image_viewer_callback(const sensor_msgs::Image& image_source)
 
 	//UNTRACKED
 	putText(matImage, "PIXEL_XY", cv::Point(10,10), cv::FONT_HERSHEY_SIMPLEX, 0.55, cv::Scalar(0, 0, 255), 2);
-	if (car_dpm_ready)
+	/*if (car_dpm_ready)
 		drawDetections(cars, cars_score, "car", frame);
 	if (ped_dpm_ready)
-		drawDetections(peds, peds_score, "pedestrian", frame);
+		drawDetections(peds, peds_score, "pedestrian", frame);*/
 
 	if (car_image_obj_ready)
 		drawDetections(cars, cars_score, "car", frame);
@@ -207,6 +206,10 @@ static void image_viewer_callback(const sensor_msgs::Image& image_source)
 			cvWaitKey(2);
 		}
 
+	car_image_obj_ready=false;
+	pedestrian_image_obj_ready=false;
+	car_track_ready=false;
+	ped_track_ready=false;
 	_drawing = false;
 }
 

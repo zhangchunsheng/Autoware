@@ -23,8 +23,8 @@ LkTracker::LkTracker(int in_id, float in_min_height, float in_max_height, float 
 	previous_centroid_y_	= 0;
 
 	cv::generateColors(colors_, 2);
-	lifespan_				= 45;
-	DEFAULT_LIFESPAN_		= 45;
+	lifespan_				= 30;
+	DEFAULT_LIFESPAN_		= 30;
 	object_id				= in_id;
 
 	min_height_ 			= in_min_height;
@@ -96,20 +96,26 @@ cv::Mat LkTracker::Track(cv::Mat in_image, cv::LatentSvmDetector::ObjectDetectio
 
 	timer.start();
 
+	//std::cout << "start ";
+
 	if (in_update && in_detection.rect.width > 0)
 	{
 		//MATCH
 		matched_detection_ = in_detection;
 		if (matched_detection_.rect.x < 0) matched_detection_.rect.x = 0;
 		if (matched_detection_.rect.y < 0) matched_detection_.rect.y = 0;
+		if (matched_detection_.rect.x > in_image.cols) matched_detection_.rect.x = in_image.cols-1;
+		if (matched_detection_.rect.y > in_image.rows) matched_detection_.rect.y = in_image.rows-1;
 		if (matched_detection_.rect.x + matched_detection_.rect.width > in_image.cols) matched_detection_.rect.width = in_image.cols - matched_detection_.rect.x;
 		if (matched_detection_.rect.y + matched_detection_.rect.height > in_image.rows) matched_detection_.rect.height = in_image.rows - matched_detection_.rect.y;
 
 		mask.setTo(cv::Scalar::all(0));
+		//std::cout << "mask: " << matched_detection_.rect << std::endl;
 		mask(matched_detection_.rect) = 1;							//fill with ones only the ROI
 
 		lifespan_ = DEFAULT_LIFESPAN_;
 	}
+	//std::cout << "mask ";
 	int sum_x = 0;
 	int sum_y = 0;
 	std::vector<cv::Point2f> valid_points;
@@ -151,7 +157,7 @@ cv::Mat LkTracker::Track(cv::Mat in_image, cv::LatentSvmDetector::ObjectDetectio
 			valid_points.push_back(current_points_[i]);
 		}
 		//std::cout << "CENTROID" << current_centroid_x_ <<","<< current_centroid_y_<< std::endl << std::endl;
-
+		//std::cout << "new track ";
 	}
 	else if ( !prev_points_.empty() )//try to match current object
 	{
@@ -196,6 +202,7 @@ cv::Mat LkTracker::Track(cv::Mat in_image, cv::LatentSvmDetector::ObjectDetectio
 			valid_points.push_back(current_points_[i]);
 			//cv::circle(in_image, current_points_[i], 3 , cv::Scalar(0,255,0), 2);
 		}
+		//std::cout << "update track ";
 	}
 	if (valid_points.size()<=2)
 	{
@@ -214,7 +221,7 @@ cv::Mat LkTracker::Track(cv::Mat in_image, cv::LatentSvmDetector::ObjectDetectio
 					3,
 					cv::KMEANS_PP_CENTERS,
 					centers);
-
+	//std::cout << "kmeans ";
 	cv::Point2f center1 = centers.at<cv::Point2f>(0);
 	cv::Point2f center2 = centers.at<cv::Point2f>(1);
 
@@ -266,6 +273,12 @@ cv::Mat LkTracker::Track(cv::Mat in_image, cv::LatentSvmDetector::ObjectDetectio
 
 	GetRectFromPoints(final_points,
 			current_rect_.rect);
+	//std::cout << "rectfrompoints ";
+
+	if (current_rect_.rect.width>matched_detection_.rect.width)
+		current_rect_.rect.width = matched_detection_.rect.width;
+	if (current_rect_.rect.height>matched_detection_.rect.height)
+		current_rect_.rect.height = matched_detection_.rect.height;
 
 	current_rect_.classID = matched_detection_.classID;
 	current_rect_.score = matched_detection_.score;
@@ -302,6 +315,10 @@ cv::Mat LkTracker::Track(cv::Mat in_image, cv::LatentSvmDetector::ObjectDetectio
 	std::swap(final_points, prev_points_);
 	cv::swap(prev_image_, gray_image);
 
+	if(prev_image_rect_.empty()){
+		prev_image_rect_ = in_image(matched_detection_.rect);
+	}
+
 	if (current_centroid_x_ > 0 && current_centroid_y_ > 0)
 	{
 		previous_centroid_x_ = current_centroid_x_;
@@ -311,8 +328,14 @@ cv::Mat LkTracker::Track(cv::Mat in_image, cv::LatentSvmDetector::ObjectDetectio
 	timer.stop();
 
 	//std::cout << timer.getTimeMilli() << std::endl;
+	//std::cout << "trackend " << std::endl;
 
 	return in_image;
+}
+
+cv::Mat LkTracker::GetPrevImageRect()
+{
+	return prev_image_rect_;
 }
 
 void LkTracker::GetRectFromPoints(std::vector< cv::Point2f > in_corners_points, cv::Rect& out_boundingbox)
@@ -347,6 +370,8 @@ void LkTracker::GetRectFromPoints(std::vector< cv::Point2f > in_corners_points, 
 	out_boundingbox.y 		= min_y;
 	out_boundingbox.width 	= max_x - min_x;
 	out_boundingbox.height 	= max_y - min_y;
+
+	//std::cout << "w:" << out_boundingbox.width << " h:" << out_boundingbox.height << std::endl;
 
 	return;
 }
