@@ -178,6 +178,9 @@ static bool _use_openmp = false;
 static std::ofstream ofs;
 static std::string filename;
 
+//Abraham
+static ros::Publisher ndt_cloud_pub;
+
 static void param_callback(const runtime_manager::ConfigNdt::ConstPtr& input)
 {
   if (_use_gnss != input->init_pos_gnss)
@@ -405,6 +408,11 @@ static void points_callback(const sensor_msgs::PointCloud2::ConstPtr& input)
 
     t = ndt.getFinalTransformation();  // localizer
     t2 = t * tf_ltob;                  // base_link
+
+    //Abraham
+    pcl_conversions::toPCL(input->header, output_cloud->header);
+	// Publish the data
+	ndt_cloud_pub.publish (output_cloud);
 
     iteration = ndt.getFinalNumIteration();
 #ifdef USE_FAST_PCL
@@ -786,6 +794,9 @@ int main(int argc, char** argv)
   time_ndt_matching_pub = nh.advertise<std_msgs::Float32>("/time_ndt_matching", 1000);
   ndt_stat_pub = nh.advertise<ndt_localizer::ndt_stat>("/ndt_stat", 1000);
   ndt_reliability_pub = nh.advertise<std_msgs::Float32>("/ndt_reliability", 1000);
+
+  //Abraham
+  ndt_cloud_pub = nh.advertise<sensor_msgs::PointCloud2>("/points_ndt",1);
 
   // Subscribers
   ros::Subscriber param_sub = nh.subscribe("config/ndt", 10, param_callback);
