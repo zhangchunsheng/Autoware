@@ -3212,8 +3212,10 @@ def terminate_children(proc, sigint=False):
 		terminate(child, sigint)
 
 def terminate(proc, sigint=False):
-	if sigint:
+	if sigint is True:
 		proc.send_signal(signal.SIGINT)
+	elif sigint == 'SIGKILL':
+		proc.kill()
 	else:
 		proc.terminate()
 
