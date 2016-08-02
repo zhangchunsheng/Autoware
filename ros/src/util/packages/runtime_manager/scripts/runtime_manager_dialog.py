@@ -2143,7 +2143,8 @@ class MyFrame(rtmgr.MyFrame):
 				thinf = th_start(f, {'file':proc.stdout})
 				self.all_th_infs.append(thinf)
 		else:
-			flags = self.obj_to_gdic(obj, {}).get('flags', [])
+			gdic = self.obj_to_gdic(obj, {})
+			flags = gdic.get('flags', [])
 			if sigint is None:
 				sigint = 'SIGTERM' not in flags
 			if kill_children is None:
@@ -2151,7 +2152,8 @@ class MyFrame(rtmgr.MyFrame):
 			if kill_children:
 				terminate_children(proc, sigint)
 			terminate(proc, sigint)
-			proc.wait()
+			timeout = gdic.get('proc_wait_timeout', 5)
+			th_start(proc_wait_thread, {'proc':proc, 'timeout':timeout, 'obj':obj})
 			if proc in self.all_procs:
 				self.all_procs.remove(proc)
 				self.all_procs_nodes.pop(proc, None)
@@ -3218,6 +3220,17 @@ def terminate(proc, sigint=False):
 		proc.kill()
 	else:
 		proc.terminate()
+
+def proc_wait_thread(proc, timeout, obj, ev):
+	try:
+		proc.wait(timeout=timeout)
+	except psutil.TimeoutExpired:
+		terminate_children(proc, sigint='SIGKILL')
+		terminate(proc, sigint='SIGKILL')
+		try:
+			proc.wait(timeout=timeout)
+		except psutil.TimeoutExpired:
+			print('Failed proc wait{}'.format(proc))
 
 def th_start(target, kwargs={}):
 	ev = threading.Event()
