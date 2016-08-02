@@ -705,6 +705,8 @@ class MyFrame(rtmgr.MyFrame):
 		pt = event.GetPosition()
 		event.Skip()
 		(item, flags) = tree.HitTest(pt)
+		if item is None:
+			return
 		if flags & CT.TREE_HITTEST_ONITEMLABEL == 0:
 			return
 		text = item.GetData()
