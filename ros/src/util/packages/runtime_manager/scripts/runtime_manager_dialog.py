@@ -2143,6 +2143,7 @@ class MyFrame(rtmgr.MyFrame):
 				thinf = th_start(f, {'file':proc.stdout})
 				self.all_th_infs.append(thinf)
 		else:
+			enables_set(obj, 'proc_wait', False)
 			gdic = self.obj_to_gdic(obj, {})
 			flags = gdic.get('flags', [])
 			if sigint is None:
@@ -3231,6 +3232,7 @@ def proc_wait_thread(proc, timeout, obj, ev):
 			proc.wait(timeout=timeout)
 		except psutil.TimeoutExpired:
 			print('Failed proc wait{}'.format(proc))
+	wx.CallAfter(enables_set, obj, 'proc_wait', True)
 
 def th_start(target, kwargs={}):
 	ev = threading.Event()
@@ -3367,7 +3369,9 @@ def enables_set(obj, k, en):
 	d = attr_getset(obj, 'enabLes', {})
 	d[k] = en
 	d['last_key'] = k
-	obj.Enable( all( d.values() ) )
+	if hasattr(obj, 'Enable'):
+		obj.Enable( all( d.values() ) )
+		obj_refresh(obj)
 	if isinstance(obj, wx.HyperlinkCtrl):
 		if not hasattr(obj, 'coLor'):
 			obj.coLor = { True:obj.GetNormalColour(), False:'#808080' }
