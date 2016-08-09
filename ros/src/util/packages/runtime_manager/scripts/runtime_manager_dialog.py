@@ -576,9 +576,9 @@ class MyFrame(rtmgr.MyFrame):
 					restore = eval( gdic.get(name, {}).get('restore', 'lambda a : None') )
 					restore(v)
 
-				self.add_cfg_info(obj, obj, k, pdic, gdic, False, prm)
+				self.add_cfg_info(obj, obj, k, pdic, gdic, prm)
 			else:
-				self.add_cfg_info(obj, obj, k, None, gdic, False, None)
+				self.add_cfg_info(obj, obj, k, None, gdic, None)
 
 	def OnGear(self, event):
 		grp = { self.button_statchk_d : 1,
@@ -1094,7 +1094,7 @@ class MyFrame(rtmgr.MyFrame):
 				obj = self.add_config_link(dic, panel, obj)
 			else:
 				gdic = self.gdic_get_1st(dic)
-				self.add_cfg_info(obj, obj, dic.get('name'), None, gdic, False, None)
+				self.add_cfg_info(obj, obj, dic.get('name'), None, gdic, None)
 		if sizer is not None:
 			sizer.append((obj, bdr_flg))
 		else:
@@ -1112,7 +1112,7 @@ class MyFrame(rtmgr.MyFrame):
 		def_link = dic_getset(gdic, 'def_link', '[config]')
 		dic_getset(gdic, 'links', [ def_link ])
 		prm = self.get_param(dic.get('param'))
-		self.add_cfg_info(cfg_obj, obj, name, pdic, gdic, True, prm)
+		self.add_cfg_info(cfg_obj, obj, name, pdic, gdic, prm)
 		self.setup_adjust(pdic, gdic, prm)
 		return hszr
 
@@ -1172,7 +1172,7 @@ class MyFrame(rtmgr.MyFrame):
 
 			cam_id_obj = self.cam_id_to_obj(cam_id, obj.GetValue())
 			if not pdic_a or not gdic_a:
-				self.add_cfg_info(cam_id_obj, cam_id_obj, cam_id, pdic, gdic, False, prm)
+				self.add_cfg_info(cam_id_obj, cam_id_obj, cam_id, pdic, gdic, prm)
 			if not cam_id_obj in cmd_dic:
 				cmd_dic[ cam_id_obj ] = (cmd, None)
 
@@ -1687,9 +1687,8 @@ class MyFrame(rtmgr.MyFrame):
 		gdic['update_func'] = self.update_func
 		return gdic
 
-	def add_cfg_info(self, cfg_obj, obj, name, pdic, gdic, run_disable, prm):
-		self.config_dic[ cfg_obj ] = { 'obj':obj , 'name':name , 'pdic':pdic , 'gdic':gdic, 
-					       'run_disable':run_disable , 'param':prm }
+	def add_cfg_info(self, cfg_obj, obj, name, pdic, gdic, prm):
+		self.config_dic[ cfg_obj ] = { 'obj':obj , 'name':name , 'pdic':pdic , 'gdic':gdic, 'param':prm }
 
 	def get_param(self, prm_name):
 		return next( (prm for prm in self.params if prm['name'] == prm_name), None)
@@ -1870,7 +1869,7 @@ class MyFrame(rtmgr.MyFrame):
 						if next( (var for var in prm.get('vars', []) if var.get('link', def_link) == link), None):
 							self.new_link(item, name, pdic, gdic, pnl, link, items.get('param'), add_objs)
 				else:
-					self.add_cfg_info(item, item, name, None, gdic, False, None)
+					self.add_cfg_info(item, item, name, None, gdic, None)
 
 				self.setup_adjust(pdic, self.sys_gdic, self.get_param('sys'))
 				if 'param' in items:
@@ -1894,7 +1893,7 @@ class MyFrame(rtmgr.MyFrame):
 				add_objs += [ wx.StaticText(pnl, wx.ID_ANY, ' ') ]
 			add_objs += [ wx.StaticText(pnl, wx.ID_ANY, '['), lkc, wx.StaticText(pnl, wx.ID_ANY, ']') ]
 		prm = self.get_param(prm_name)
-		self.add_cfg_info(lkc if lkc else item, item, name, pdic, gdic, False, prm)
+		self.add_cfg_info(lkc if lkc else item, item, name, pdic, gdic, prm)
 
 	def load_dic_pdic_setup(self, name, dic):
 		name = dic.get('share_val', dic.get('name', name))
