@@ -45,31 +45,38 @@ catkin_package(
 ###########
 
 SET(CMAKE_CXX_FLAGS "-std=c++11 -O2 -g -Wall ${CMAKE_CXX_FLAGS}")
+set(LIB_TRAJGEN_DIR "$ENV{HOME}/traj_gen_dir")
 
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
 )
 
-
 add_library(libtraj_gen lib/libtraj_gen.cpp)
 target_link_libraries(libtraj_gen ${catkin_LIBRARIES} armadillo)
 
-add_library(libvelocity_set lib/libvelocity_set.cpp)
-add_dependencies(libvelocity_set map_file_generate_messages_cpp)
+if(EXISTS "${LIB_TRAJGEN_DIR}")
 
+message("lattice planner will be built...")
 add_executable(lattice_trajectory_gen nodes/lattice_trajectory_gen/lattice_trajectory_gen.cpp)
-target_link_libraries(lattice_trajectory_gen gnss libwaypoint_follower libtraj_gen ${catkin_LIBRARIES})
+target_link_libraries(lattice_trajectory_gen gnss libwaypoint_follower libtraj_gen ${LIB_TRAJGEN_DIR}/librbfa.a ${catkin_LIBRARIES})
 add_dependencies(lattice_trajectory_gen
 waypoint_follower_generate_messages_cpp
 runtime_manager_generate_messages_cpp
 vehicle_socket_generate_messages_cpp)
 
 add_executable(lattice_twist_convert nodes/lattice_twist_convert/lattice_twist_convert.cpp)
-target_link_libraries(lattice_twist_convert libwaypoint_follower libtraj_gen ${catkin_LIBRARIES})
+target_link_libraries(lattice_twist_convert libwaypoint_follower ${catkin_LIBRARIES} libtraj_gen)
 add_dependencies(lattice_twist_convert 
 waypoint_follower_generate_messages_cpp
 runtime_manager_generate_messages_cpp)
+
+else()
+message("can not find static library for trajectry_gen. lattice planner will not be built.") 
+endif()
+
+add_library(libvelocity_set lib/libvelocity_set.cpp)
+add_dependencies(libvelocity_set map_file_generate_messages_cpp)
 
 add_executable(velocity_set nodes/velocity_set/velocity_set.cpp)
 target_link_libraries(velocity_set libwaypoint_follower libvelocity_set ${catkin_LIBRARIES})

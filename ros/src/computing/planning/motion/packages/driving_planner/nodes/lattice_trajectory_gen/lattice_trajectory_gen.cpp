@@ -53,6 +53,7 @@
 #include "waypoint_follower/libwaypoint_follower.h"
 #include "libtraj_gen.h"
 #include "vehicle_socket/CanInfo.h"
+#include "rbfa.h"
 //#include <dbw_mkz_msgs/SteeringReport.h>
 
 
@@ -365,67 +366,40 @@ static union State computeVeh(int old_time, double old_theta, int next_waypoint)
 /////////////////////////////////////////////////////////////////
 static union Spline waypointTrajectory(union State veh, union State goal, union Spline curvature, int next_waypoint)
 {
-    curvature.success=TRUE;  
+    curvature.success=FALSE;
     bool convergence=FALSE;
     int iteration = 0;
     union State veh_next;
     double dt = step_size;
     veh.v=goal.v;
 
-    // While loop for computing trajectory parameters
-    while(convergence == FALSE && iteration<4)
-    {
-        // Set time horizon
-        double horizon = curvature.s/veh.vdes;
-        ROS_INFO_STREAM("vdes: " << veh.vdes);
-        ROS_INFO_STREAM("horizon: " << horizon);
+    // Set time horizon
+    double horizon = curvature.s/veh.vdes;
+    ROS_INFO_STREAM("vdes: " << veh.vdes);
+    ROS_INFO_STREAM("horizon: " << horizon);
+    double sx = goal.sx;
+    double sy = goal.sy;
+    double theta = goal.theta;
+    // Compute trajectory...
+      // This is the arc length of the trajectory,
+      curvature.s = rbfa1(sx, sy, theta*10.0);
+      // This is the curvature at the knot point 0
+      curvature.kappa_0 = rbfa2(sx, sy, theta*10.0);
+      // This is the curvature at knot point 1
+      curvature.kappa_1 = rbfa3(sx, sy, theta*10.0);
+      // This is the curvature at knot point 2
+      curvature.kappa_2 = rbfa4(sx, sy, theta*10.0);
+      // This is the curvature at knot point 3
+      curvature.kappa_3 = rbfa5(sx, sy, theta*10.0);
+      // Note that the request was succesfull
+      curvature.success= TRUE;
+    
 
-        // Run motion model
-        veh_next = motionModel(veh, goal, curvature, dt, horizon, 0);
-        
-        // Determine convergence criteria
-        convergence = checkConvergence(veh_next, goal);
-
-        // If the motion model doesn't get us to the goal compute new parameters
-        if(convergence==FALSE)
-        {
-            // Update parameters
-            curvature = generateCorrection(veh, veh_next, goal, curvature, dt, horizon);
-            iteration++;
-
-            // Escape route for poorly conditioned Jacobian
-            if(curvature.success==FALSE)
-            {
-                ROS_INFO_STREAM("Init State: sx "<<veh.sx<<" sy " <<veh.sy<<" theta "<<veh.theta<<" kappa "<<veh.kappa<<" v "<<veh.v);
-                ROS_INFO_STREAM("Goal State: sx "<<goal.sx<<" sy " <<goal.sy<<" theta "<<goal.theta<<" kappa "<<goal.kappa<<" v"<<goal.v);
-                break;
-            }
-        }    
-    }
-
-    if(convergence==FALSE)
-    {
-      ROS_INFO_STREAM("Next State: sx "<<veh_next.sx<<" sy " <<veh_next.sy<<" theta "<<veh_next.theta<<" kappa "<<veh_next.kappa<<" v "<<veh_next.v);
-      ROS_INFO_STREAM("Init State: sx "<<veh.sx<<" sy " <<veh.sy<<" theta "<<veh.theta<<" kappa "<<veh.kappa);
-      ROS_INFO_STREAM("Goal State: sx "<<goal.sx<<" sy " <<goal.sy<<" theta "<<goal.theta<<" kappa "<<goal.kappa);
-      curvature.success= FALSE;
-    }
-
-    else
-    {
-        ROS_INFO_STREAM("Converged in "<<iteration<<" iterations");
-
-        #ifdef LOG_OUTPUT
-        // Set time horizon
-         double horizon = curvature.s/v_0;
-        // Run motion model and log data for plotting
-        veh_next = motionModel(veh, goal, curvature, 0.1, horizon, 1);
-        fmm_sx<<"0.0 \n";
-        fmm_sy<<"0.0 \n";
-        #endif
-    }
+    //ROS_INFO_STREAM("Init State: sx "<<veh.sx<<" sy " <<veh.sy<<" theta "<<veh.theta<<" kappa "<<veh.kappa);
+    //ROS_INFO_STREAM("Goal State: sx "<<goal.sx<<" sy " <<goal.sy<<" theta "<<goal.theta<<" kappa "<<goal.kappa);
 
     return curvature;
+
 }
 
 /////////////////////////////////////////////////////////////////
@@ -511,7 +485,7 @@ int main(int argc, char **argv)
   double old_theta=0.0;
 
   // Write to console that we are starting trajectory generation
-  ROS_INFO_STREAM("Trajectory Generation Begins: ");
+  ROS_INFO_STREAM("Better Trajectory Generation Begins: ");
 
   // Set up ROS, TO DO: change to proper name (same with rest of the file)
   ros::init(argc, argv, "lattice_trajectory_gen");
