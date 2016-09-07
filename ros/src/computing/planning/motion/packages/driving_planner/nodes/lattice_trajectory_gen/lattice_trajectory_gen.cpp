@@ -123,6 +123,7 @@ static void currentPoseCallback(const geometry_msgs::PoseStampedConstPtr &msg)
 static void currentVelCallback(const geometry_msgs::TwistStampedConstPtr &msg)
 {
   g_current_velocity = msg->twist.linear.x;
+  g_current_angular_velocity = msg->twist.angular.z;
 }
 
 static void WayPointCallback(const waypoint_follower::laneConstPtr &msg)
@@ -132,7 +133,7 @@ static void WayPointCallback(const waypoint_follower::laneConstPtr &msg)
   ROS_INFO_STREAM("waypoint subscribed");
 }
 
-/*static double getCmdVelocity(int waypoint)
+static double getCmdVelocity(int waypoint)
 {
 
   if (g_param_flag)
@@ -151,7 +152,7 @@ static void WayPointCallback(const waypoint_follower::laneConstPtr &msg)
   ROS_INFO_STREAM("waypoint : " << mps2kmph(velocity) << " km/h ( " << velocity << "m/s )");
   return velocity;
 }
-*/
+
 static double getLookAheadThreshold(int waypoint)
 {
   if (g_param_flag)
@@ -330,7 +331,8 @@ static union State computeVeh(int old_time, double old_theta, int next_waypoint)
     l_veh.v = g_current_velocity;
 
     // Get the desired velocity
-    l_veh.vdes = g_current_waypoints.getWaypointVelocityMPS(next_waypoint);
+    //l_veh.vdes = g_current_waypoints.getWaypointVelocityMPS(next_waypoint);
+    l_veh.vdes = getCmdVelocity(next_waypoint);
     ROS_INFO_STREAM("Desired Velocity: "<< l_veh.vdes);
 
     // Not using timing related stuff for now...
