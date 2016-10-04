@@ -1812,7 +1812,8 @@ class MyFrame(rtmgr.MyFrame):
 
 			f = self.obj_to_gdic(obj, {}).get('stdout_func')
 			f = eval_if_str(self, f)
-			f = f if f else self.log_th
+			if f is None and self.status_dic.get('log_path') == 'log_th':
+				f = self.log_th
 
 			out = subprocess.PIPE if f else None
 			err = subprocess.STDOUT if f else None
