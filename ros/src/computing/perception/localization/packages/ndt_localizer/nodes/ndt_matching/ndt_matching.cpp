@@ -45,6 +45,7 @@
 #include <std_msgs/String.h>
 #include <std_msgs/Bool.h>
 #include <sensor_msgs/PointCloud2.h>
+#include <sensor_msgs/Imu.h>
 #include <velodyne_pointcloud/point_types.h>
 #include <velodyne_pointcloud/rawdata.h>
 
@@ -177,6 +178,11 @@ static bool _use_openmp = false;
 
 static std::ofstream ofs;
 static std::string filename;
+
+static double cummulative_yaw= 0.0;
+double previous_imu_roll, previous_imu_pitch, previous_imu_yaw, diff_imu_roll, diff_imu_pitch, diff_imu_yaw;
+
+double previous_imu_angle, current_imu_angle;
 
 static void param_callback(const runtime_manager::ConfigNdt::ConstPtr& input)
 {
@@ -345,10 +351,38 @@ static void initialpose_callback(const geometry_msgs::PoseWithCovarianceStamped:
   offset_yaw = 0.0;
 }
 
+static void imu_callback(const sensor_msgs::Imu::ConstPtr &input){
+	double roll, pitch, yaw;
+	tf::Quaternion q(input->orientation.x, input->orientation.y, input->orientation.z, input->orientation.w);
+	tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
+	current_imu_angle = yaw;
+//	std::cout << "roll: " << roll << ", pitch: " << pitch << ", yaw: " << yaw << std::endl;
+
+	cummulative_yaw += yaw;
+
+	diff_imu_roll = roll - previous_imu_roll;
+	diff_imu_pitch = pitch - previous_imu_pitch;
+	diff_imu_yaw = yaw - previous_imu_yaw;
+
+	std::cout << "cummulative_yaw: " << std::fixed << std::setprecision(10) << cummulative_yaw << std::endl;
+	std::cout << "diff_imu_roll" << std::fixed << std::setprecision(10) << diff_imu_roll <<
+			", diff_imu_pitch: " << std::fixed << std::setprecision(10) << diff_imu_pitch <<
+			", diff_imu_yaw: " << std::fixed << std::setprecision(10) << diff_imu_yaw << std::endl;
+
+	previous_imu_roll = roll;
+	previous_imu_pitch = pitch;
+	previous_imu_yaw = yaw;
+}
+
 static void points_callback(const sensor_msgs::PointCloud2::ConstPtr& input)
 {
   if (map_loaded == 1 && init_pos_set == 1)
   {
+	double imu_yaw = cummulative_yaw;
+	cummulative_yaw = 0.0;
+	double diff_angle = current_imu_angle - previous_imu_angle;
+	std::cout << "diff_angle: " << diff_angle << std::endl;
+
     matching_start = std::chrono::system_clock::now();
 
     static tf::TransformBroadcaster br;
@@ -380,6 +414,8 @@ static void points_callback(const sensor_msgs::PointCloud2::ConstPtr& input)
     predict_pose.roll = previous_pose.roll;
     predict_pose.pitch = previous_pose.pitch;
     predict_pose.yaw = previous_pose.yaw + offset_yaw;
+
+    double predict_pose_yaw_imu = previous_pose.yaw + imu_yaw;
 
     Eigen::Translation3f init_translation(predict_pose.x, predict_pose.y, predict_pose.z);
     Eigen::AngleAxisf init_rotation_x(predict_pose.roll, Eigen::Vector3f::UnitX());
@@ -624,6 +660,9 @@ static void points_callback(const sensor_msgs::PointCloud2::ConstPtr& input)
             << ndt_reliability.data << "," << current_velocity << "," << current_velocity_smooth << "," << current_accel
             << "," << angular_velocity << "," << time_ndt_matching.data << "," << align_time << "," << getFitnessScore_time << std::endl;
 
+    previous_imu_angle = current_imu_angle;
+    std::cout << "current_pose.yaw: " << current_pose.yaw << " predict_pose.yaw: " << predict_pose.yaw << " predict_pose_yaw_imu: " << predict_pose_yaw_imu << std::endl;
+
     std::cout << "-----------------------------------------------------------------" << std::endl;
     std::cout << "Sequence: " << input->header.seq << std::endl;
     std::cout << "Timestamp: " << input->header.stamp << std::endl;
@@ -796,6 +835,7 @@ int main(int argc, char** argv)
   ros::Subscriber map_sub = nh.subscribe("points_map", 10, map_callback);
   ros::Subscriber initialpose_sub = nh.subscribe("initialpose", 1000, initialpose_callback);
   ros::Subscriber points_sub = nh.subscribe("filtered_points", _queue_size, points_callback);
+  ros::Subscriber imu_sub = nh.subscribe("imu_data", _queue_size, imu_callback);
 
   ros::spin();
 
