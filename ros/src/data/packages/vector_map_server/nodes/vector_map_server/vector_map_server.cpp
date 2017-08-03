@@ -29,36 +29,37 @@
 */
 
 #include <geometry_msgs/PoseStamped.h>
-#include <waypoint_follower/lane.h>
+#include "autoware_msgs/lane.h"
 #include <visualization_msgs/MarkerArray.h>
-#include <vector_map/vector_map.h>
+#include "vector_map/vector_map.h"
 
-#include <vector_map_server/GetDTLane.h>
-#include <vector_map_server/GetNode.h>
-#include <vector_map_server/GetLane.h>
-#include <vector_map_server/GetWayArea.h>
-#include <vector_map_server/GetRoadEdge.h>
-#include <vector_map_server/GetGutter.h>
-#include <vector_map_server/GetCurb.h>
-#include <vector_map_server/GetWhiteLine.h>
-#include <vector_map_server/GetStopLine.h>
-#include <vector_map_server/GetZebraZone.h>
-#include <vector_map_server/GetCrossWalk.h>
-#include <vector_map_server/GetRoadMark.h>
-#include <vector_map_server/GetRoadPole.h>
-#include <vector_map_server/GetRoadSign.h>
-#include <vector_map_server/GetSignal.h>
-#include <vector_map_server/GetStreetLight.h>
-#include <vector_map_server/GetUtilityPole.h>
-#include <vector_map_server/GetGuardRail.h>
-#include <vector_map_server/GetSideWalk.h>
-#include <vector_map_server/GetDriveOnPortion.h>
-#include <vector_map_server/GetCrossRoad.h>
-#include <vector_map_server/GetSideStrip.h>
-#include <vector_map_server/GetCurveMirror.h>
-#include <vector_map_server/GetWall.h>
-#include <vector_map_server/GetFence.h>
-#include <vector_map_server/GetRailCrossing.h>
+#include "vector_map_server/GetDTLane.h"
+#include "vector_map_server/GetNode.h"
+#include "vector_map_server/GetLane.h"
+#include "vector_map_server/GetWayArea.h"
+#include "vector_map_server/GetRoadEdge.h"
+#include "vector_map_server/GetGutter.h"
+#include "vector_map_server/GetCurb.h"
+#include "vector_map_server/GetWhiteLine.h"
+#include "vector_map_server/GetStopLine.h"
+#include "vector_map_server/GetZebraZone.h"
+#include "vector_map_server/GetCrossWalk.h"
+#include "vector_map_server/GetRoadMark.h"
+#include "vector_map_server/GetRoadPole.h"
+#include "vector_map_server/GetRoadSign.h"
+#include "vector_map_server/GetSignal.h"
+#include "vector_map_server/GetStreetLight.h"
+#include "vector_map_server/GetUtilityPole.h"
+#include "vector_map_server/GetGuardRail.h"
+#include "vector_map_server/GetSideWalk.h"
+#include "vector_map_server/GetDriveOnPortion.h"
+#include "vector_map_server/GetCrossRoad.h"
+#include "vector_map_server/GetSideStrip.h"
+#include "vector_map_server/GetCurveMirror.h"
+#include "vector_map_server/GetWall.h"
+#include "vector_map_server/GetFence.h"
+#include "vector_map_server/GetRailCrossing.h"
+#include "vector_map_server/PositionState.h"
 
 using vector_map::VectorMap;
 using vector_map::Category;
@@ -99,8 +100,11 @@ using vector_map::Wall;
 using vector_map::Fence;
 using vector_map::RailCrossing;
 
-using vector_map::convertGeomPointToPoint;
 using vector_map::isValidMarker;
+using vector_map::convertPointToGeomPoint;
+using vector_map::convertGeomPointToPoint;
+
+using Polygon = std::vector<geometry_msgs::Point>;
 
 namespace
 {
@@ -341,7 +345,7 @@ std::vector<Lane> findNearLanes(const VectorMap& vmap, const std::vector<Lane>& 
   return near_lanes;
 }
 
-std::vector<Lane> createFineLanes(const VectorMap& vmap, const waypoint_follower::lane& waypoints, double radius,
+std::vector<Lane> createFineLanes(const VectorMap& vmap, const autoware_msgs::lane& waypoints, double radius,
                                   int loops)
 {
   std::vector<Lane> null_lanes;
@@ -437,6 +441,85 @@ std::vector<Lane> createFineLanes(const VectorMap& vmap, const waypoint_follower
   return null_lanes;
 }
 
+bool isValidPolygon(const Polygon& polygon)
+{
+  return polygon.size() > 3;
+}
+
+Polygon createPolygon(const VectorMap& vmap, const Area& area)
+{
+  Polygon null_polygon;
+  if (area.aid == 0)
+    return null_polygon;
+
+  Line line = vmap.findByKey(Key<Line>(area.slid));
+  if (line.lid == 0)
+    return null_polygon;
+  if (line.blid != 0)
+    return null_polygon;
+
+  Polygon polygon;
+  Line start_line = line;
+  while (true)
+  {
+    Point point = vmap.findByKey(Key<Point>(line.bpid));
+    if (point.pid == 0)
+      return null_polygon;
+    polygon.push_back(convertPointToGeomPoint(point));
+
+    if (line.flid == 0)
+      break;
+
+    line = vmap.findByKey(Key<Line>(line.flid));
+    if (line.lid == 0)
+      return null_polygon;
+  }
+  Point point = vmap.findByKey(Key<Point>(line.fpid));
+  if (point.pid == 0)
+    return null_polygon;
+  polygon.push_back(convertPointToGeomPoint(point));
+
+  Line end_line = line;
+  if (start_line.bpid != end_line.fpid)
+    return null_polygon;
+
+  if (!isValidPolygon(polygon))
+    return null_polygon;
+
+  return polygon;
+}
+
+bool isWinding(const Polygon& polygon, const geometry_msgs::Point& geom_point, size_t i)
+{
+  double variation_x = polygon[i + 1].x - polygon[i].x;
+  variation_x *= (geom_point.y - polygon[i].y) / (polygon[i + 1].y - polygon[i].y);
+  return geom_point.x < polygon[i].x + variation_x;
+}
+
+bool isInPolygon(const Polygon& polygon, const geometry_msgs::Point& geom_point)
+{
+  if (!isValidPolygon(polygon))
+    return false;
+
+  // Winding Number Algorithm
+  int winding_number = 0;
+  for (size_t i = 0; i < polygon.size() - 1; ++i)
+  {
+    if (polygon[i].y <= geom_point.y && polygon[i + 1].y > geom_point.y)
+    {
+      if (isWinding(polygon, geom_point, i))
+        ++winding_number;
+    }
+    else if (polygon[i].y > geom_point.y && polygon[i + 1].y <= geom_point.y)
+    {
+      if (isWinding(polygon, geom_point, i))
+        --winding_number;
+    }
+  }
+
+  return winding_number != 0;
+}
+
 class VectorMapServer
 {
 private:
@@ -449,7 +532,7 @@ private:
   ros::Publisher marker_array_pub_;
 
   std::vector<Lane> createTravelingRoute(const geometry_msgs::PoseStamped& pose,
-                                         const waypoint_follower::lane& waypoints)
+                                         const autoware_msgs::lane& waypoints)
   {
     std::vector<Lane> null_lanes;
 
@@ -944,6 +1027,25 @@ public:
     }
     return true;
   }
+
+  bool isWayArea(vector_map_server::PositionState::Request& request,
+                 vector_map_server::PositionState::Response& response)
+  {
+    response.state = false;
+    for (const auto& way_area : vmap_.findByFilter([](const WayArea& way_area){return true;}))
+    {
+      Area area = vmap_.findByKey(Key<Area>(way_area.aid));
+      if (area.aid == 0)
+        continue;
+      Polygon polygon = createPolygon(vmap_, area);
+      if (isInPolygon(polygon, request.position))
+      {
+        response.state = true;
+        break;
+      }
+    }
+    return true;
+  }
 };
 } // namespace
 
@@ -1006,6 +1108,8 @@ int main(int argc, char **argv)
                                                          &VectorMapServer::getFence, &vms);
   ros::ServiceServer get_rail_crossing_srv = nh.advertiseService("vector_map_server/get_rail_crossing",
                                                                  &VectorMapServer::getRailCrossing, &vms);
+  ros::ServiceServer is_way_area_srv = nh.advertiseService("vector_map_server/is_way_area",
+                                                           &VectorMapServer::isWayArea, &vms);
 
   ros::spin();
 

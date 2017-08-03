@@ -9,28 +9,12 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   tf
   gnss
-  message_generation
-  runtime_manager
-  vehicle_socket
+  autoware_msgs
 )
 
 ################################################
 ## Declare ROS messages, services and actions ##
 ################################################
-
-add_message_files(
-  FILES
-  lane.msg
-  waypoint.msg
-  dtlane.msg
-  LaneArray.msg
-)
-
-generate_messages(
-  DEPENDENCIES
-  std_msgs 
-  geometry_msgs
-)
 
 ###################################
 ## catkin specific configuration ##
@@ -38,8 +22,8 @@ generate_messages(
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES libwaypoint_follower
-  CATKIN_DEPENDS roscpp std_msgs tf runtime_manager vehicle_socket message_runtime geometry_msgs
-  DEPENDS gnss
+  CATKIN_DEPENDS roscpp tf autoware_msgs
+ # DEPENDS
 )
 
 ###########
@@ -55,13 +39,18 @@ include_directories(
 
 add_library(libwaypoint_follower lib/libwaypoint_follower.cpp)
 add_dependencies(libwaypoint_follower
-waypoint_follower_generate_messages_cpp)
+${catkin_EXPORTED_TARGETS}
+)
 
-add_executable(pure_pursuit nodes/pure_pursuit/pure_pursuit.cpp nodes/pure_pursuit/pure_pursuit_core.cpp nodes/pure_pursuit/pure_pursuit_viz.cpp)
+add_executable(pure_pursuit
+  nodes/pure_pursuit/pure_pursuit_node.cpp
+  nodes/pure_pursuit/pure_pursuit.cpp
+  nodes/pure_pursuit/pure_pursuit_core.cpp
+  nodes/pure_pursuit/pure_pursuit_viz.cpp
+  )
 target_link_libraries(pure_pursuit libwaypoint_follower ${catkin_LIBRARIES})
-add_dependencies(pure_pursuit 
-waypoint_follower_generate_messages_cpp
-runtime_manager_generate_messages_cpp)
+add_dependencies(pure_pursuit
+${catkin_EXPORTED_TARGETS} )
 
 add_executable(wf_simulator nodes/wf_simulator/wf_simulator.cpp)
 target_link_libraries(wf_simulator libwaypoint_follower ${catkin_LIBRARIES})
@@ -69,6 +58,6 @@ target_link_libraries(wf_simulator libwaypoint_follower ${catkin_LIBRARIES})
 add_executable(twist_filter nodes/twist_filter/twist_filter.cpp)
 target_link_libraries(twist_filter ${catkin_LIBRARIES})
 add_dependencies(twist_filter
-runtime_manager_generate_messages_cpp)
+${catkin_EXPORTED_TARGETS} )
 
 
